@@ -92,6 +92,7 @@ emitInit({ sessionId: contract.resume, tools: locked && !mcpError ? tools : [], 
   status: mcpError ? 'absent' : endpoint ? 'connected' : 'absent' })
 
 let reportedFailure
+let outcome
 try {
   if (mcpError) process.stderr.write(`${mcpError.trim()}\n`)
   const { code, stderr } = await run(bin, args, { cwd: process.cwd(), env: process.env }, line => {
@@ -106,11 +107,14 @@ try {
     }
     emitEvent(`agy/${type}`, { data: parsed })
   })
-  if (code !== 0) fail(stderr || reportedFailure || `agy ended with ${code}`)
-  if (reportedFailure) fail(reportedFailure)
+  if (code !== 0) outcome = stderr || reportedFailure || `agy ended with ${code}`
+  else if (reportedFailure) outcome = reportedFailure
 } finally {
+  // The cleanup runs before the turn reports: `process.exit` does not unwind a `finally`, so failing inside the try
+  // would leave this turn's MCP entry in the shared config and its lock on disk.
   if (locked) {
     await agyControl(['mcp', 'remove', SERVER_NAME])
     unlock()
   }
 }
+if (outcome) fail(outcome)

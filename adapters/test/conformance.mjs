@@ -9,9 +9,9 @@
  *   node adapters/test/conformance.mjs
  */
 import { spawn } from 'node:child_process'
-import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:http'
-import { tmpdir } from 'node:os'
+import { homedir, tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -48,9 +48,9 @@ const mcpConfig = JSON.stringify({ mcpServers: { superagent: { type: 'http', url
   headers: { authorization: `Bearer ${TOKEN}` } } } })
 
 /** Runs one adapter to completion and returns what it wrote. */
-function runAdapter(adapter, { binEnv, fake, fail, resume } = {}) {
-  const argvOut = join(scratch, `${adapter}-argv.json`)
-  const mcpLog = join(scratch, `${adapter}-mcp.log`)
+function runAdapter(adapter, { binEnv, fake, fail, resume, label } = {}) {
+  const argvOut = join(scratch, `${adapter}-${label ?? 'default'}-argv.json`)
+  const mcpLog = join(scratch, `${adapter}-${label ?? 'default'}-mcp.log`)
   const contract = ['-p', 'do the thing', '--output-format', 'stream-json', '--verbose', '--tools', '',
     '--strict-mcp-config', '--disable-slash-commands', '--mcp-config', mcpConfig,
     '--system-prompt', 'SYSTEM RULES', '--model', 'test-model']
@@ -81,7 +81,7 @@ for (const [fake, file] of [['codex', 'codex'], ['dsh', 'dsh']]) chmodSync(join(
 
 console.log('\ncodex adapter')
 {
-  const result = await runAdapter('codex', { binEnv: 'SA_CODEX_BIN', fake: 'codex' })
+  const result = await runAdapter('codex', { binEnv: 'SA_CODEX_BIN', fake: 'codex', label: 'ok' })
   const init = result.lines[0] ?? {}
   check('exit 0', result.code === 0, result.stderr)
   check('first line is the init event', init.type === 'system' && init.subtype === 'init')
@@ -98,21 +98,21 @@ console.log('\ncodex adapter')
 
 console.log('\ncodex adapter, resume')
 {
-  const result = await runAdapter('codex', { binEnv: 'SA_CODEX_BIN', fake: 'codex', resume: 'thread-9' })
+  const result = await runAdapter('codex', { binEnv: 'SA_CODEX_BIN', fake: 'codex', resume: 'thread-9', label: 'resume' })
   check('resume becomes `exec resume <id>`', result.argv.includes('resume') && result.argv.includes('thread-9'))
   check('a resumed turn reports no new session', !result.lines.some(line => line.type === 'system/session'))
 }
 
 console.log('\ncodex adapter, failure')
 {
-  const result = await runAdapter('codex', { binEnv: 'SA_CODEX_BIN', fake: 'codex', fail: 'the model refused' })
+  const result = await runAdapter('codex', { binEnv: 'SA_CODEX_BIN', fake: 'codex', fail: 'the model refused', label: 'fail' })
   check('a failed turn exits non-zero', result.code !== 0)
   check('the failure reaches stderr', result.stderr.includes('the model refused'), result.stderr.trim())
 }
 
 console.log('\ndsh adapter')
 {
-  const result = await runAdapter('dsh', { binEnv: 'SA_DSH_BIN', fake: 'dsh' })
+  const result = await runAdapter('dsh', { binEnv: 'SA_DSH_BIN', fake: 'dsh', label: 'ok' })
   const init = result.lines[0] ?? {}
   check('exit 0', result.code === 0, result.stderr)
   check('first line is the init event', init.type === 'system' && init.subtype === 'init')
@@ -124,14 +124,14 @@ console.log('\ndsh adapter')
 
 console.log('\ndsh adapter, failure reported inside a zero exit')
 {
-  const result = await runAdapter('dsh', { binEnv: 'SA_DSH_BIN', fake: 'dsh', fail: 'no API key' })
+  const result = await runAdapter('dsh', { binEnv: 'SA_DSH_BIN', fake: 'dsh', fail: 'no API key', label: 'fail' })
   check('the failure makes the adapter exit non-zero', result.code !== 0, `code=${result.code}`)
   check('the failure reaches stderr', result.stderr.includes('no API key'), result.stderr.trim())
 }
 
 console.log('\nagy adapter')
 {
-  const result = await runAdapter('agy', { binEnv: 'SA_AGY_BIN', fake: 'agy' })
+  const result = await runAdapter('agy', { binEnv: 'SA_AGY_BIN', fake: 'agy', label: 'ok' })
   const init = result.lines[0] ?? {}
   check('exit 0', result.code === 0, result.stderr)
   check('first line is the init event', init.type === 'system' && init.subtype === 'init')
@@ -145,10 +145,13 @@ console.log('\nagy adapter')
 
 console.log('\nagy adapter, failure')
 {
-  const result = await runAdapter('agy', { binEnv: 'SA_AGY_BIN', fake: 'agy', fail: 'not eligible' })
+  const result = await runAdapter('agy', { binEnv: 'SA_AGY_BIN', fake: 'agy', fail: 'not eligible', label: 'fail' })
   check('a failed turn exits non-zero', result.code !== 0)
   check('the failure reaches stderr', result.stderr.includes('not eligible'), result.stderr.trim())
-  check('the MCP server is still removed', result.mcpCalls.some(call => call.startsWith('mcp remove')))
+  // A failed turn must leave nothing behind: not the entry in agy's shared MCP config, not the lock.
+  check('this turn removed its MCP server', result.mcpCalls.some(call => call.startsWith('mcp remove')),
+    JSON.stringify(result.mcpCalls))
+  check('no lock is left on disk', !existsSync(join(homedir(), '.gemini', 'config', '.superagent-adapter.lock')))
 }
 
 console.log('\nMCP probe')
