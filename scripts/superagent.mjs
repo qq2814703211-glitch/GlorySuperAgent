@@ -24,6 +24,8 @@ function options(argv) {
     else if (argument === '--port') values.port = Number(argv[++index])
     else if (argument === '--cli') values.cli = argv[++index]
     else if (argument === '--cli-model') values.cliModel = argv[++index]
+    else if (argument === '--worker-cli') values.workerCli = argv[++index]
+    else if (argument === '--worker-cli-model') values.workerCliModel = argv[++index]
     else if (argument === '--no-open') values.noOpen = true
     else if (argument === '--sandbox') values.sandbox = argv[++index]
     else if (argument === '--allow-read') (values.readable ??= []).push(argv[++index])
@@ -41,6 +43,8 @@ const stateDir = values.stateDir ?? process.env.SUPERAGENT_STATE_DIR
 const port = values.port ?? (process.env.SUPERAGENT_PORT ? Number(process.env.SUPERAGENT_PORT) : undefined)
 const cli = values.cli ?? process.env.SUPERAGENT_CLI
 const cliModel = values.cliModel ?? process.env.SUPERAGENT_CLI_MODEL
+const workerCli = values.workerCli ?? process.env.SUPERAGENT_WORKER_CLI
+const workerCliModel = values.workerCliModel ?? process.env.SUPERAGENT_WORKER_CLI_MODEL
 /** The default port, which keeps the panel's address the same from one start to the next. */
 const DEFAULT_PORT = 3082
 const start = port => startStandalone({
@@ -49,6 +53,7 @@ const start = port => startStandalone({
   ...values.sandbox ?? process.env.SUPERAGENT_SANDBOX ? { sandbox: values.sandbox ?? process.env.SUPERAGENT_SANDBOX } : {},
   ...values.readable || values.writable ? { sandboxExtras: { readable: values.readable ?? [], writable: values.writable ?? [] } } : {},
   ...cli ? { cli: { command: cli, ...cliModel ? { model: cliModel } : {} } } : {},
+  ...workerCli ? { workerCli: { command: workerCli, ...workerCliModel ? { model: workerCliModel } : {} } } : {},
 })
 let host
 try { host = await start(port ?? DEFAULT_PORT) }
@@ -60,6 +65,7 @@ catch (error) {
 const url = `http://127.0.0.1:${host.host.http.port}/`
 console.log(`superagent is running. Open the panel at ${url}`)
 console.log(`the agent CLI is ${cli ?? 'not configured; a ticket that needs an agent will fail'}`)
+if (workerCli) console.log(`the worker CLI is ${workerCli}`)
 if (!values.noOpen && !process.env.CI) {
   const opener = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'explorer' : 'xdg-open'
   spawn(opener, [url], { stdio: 'ignore', detached: true }).on('error', () => {}).unref()

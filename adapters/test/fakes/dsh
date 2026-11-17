@@ -1,0 +1,17 @@
+#!/usr/bin/env node
+/** A stand-in for `dsh --profile headless`: records its argv, prints the events a real run prints. */
+import { writeFileSync } from 'node:fs'
+const argv = process.argv.slice(2)
+if (process.env.FAKE_ARGV_OUT) writeFileSync(process.env.FAKE_ARGV_OUT, JSON.stringify(argv))
+const sessionId = process.env.FAKE_SESSION ?? 'session-fake-1'
+process.stdout.write(`${JSON.stringify({ type: 'session', sessionId, cwd: process.cwd() })}\n`)
+process.stdout.write(`${JSON.stringify({ type: 'status', phase: 'turn_start', turn: 1 })}\n`)
+if (process.env.FAKE_FAIL) {
+  const error = { message: process.env.FAKE_FAIL, code: 'MISSING_CREDENTIAL' }
+  process.stdout.write(`${JSON.stringify({ type: 'status', phase: 'turn_end', turn: 1, reason: { kind: 'error', error } })}\n`)
+  process.stdout.write(`${JSON.stringify({ type: 'final', sessionId, reason: { kind: 'error', error }, text: '' })}\n`)
+  process.stderr.write(`dsh: ${process.env.FAKE_FAIL}\n`)
+  process.exit(0)
+}
+process.stdout.write(`${JSON.stringify({ type: 'status', phase: 'turn_end', turn: 1, reason: { kind: 'done' } })}\n`)
+process.stdout.write(`${JSON.stringify({ type: 'final', sessionId, reason: { kind: 'done' }, text: 'ok' })}\n`)

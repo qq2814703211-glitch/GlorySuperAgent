@@ -28,8 +28,16 @@ export interface CliConfig {
 
 /** The options of the Claude Code runner. */
 export interface ClaudeRunnerOptions {
-  /** The CLI's configuration. */
+  /** The CLI's configuration. Used by the router, and by every agent without a worker CLI of its own. */
   readonly cli: CliConfig
+  /**
+   * The CLI that runs workers, when it is not the one that runs the router.
+   *
+   * The router reads text from strangers and must prove it has no tool but the engine's; only a CLI that can be started
+   * without its built-in tools can do that. A CLI that cannot — Codex, dsh, Antigravity's `agy` — may still be a worker,
+   * where the sandbox and the ticket scope are what confine it. Adapters in `adapters/` speak this runner's contract.
+   */
+  readonly workerCli?: CliConfig
   /** How the runner starts a process. */
   readonly subprocess: Subprocess
   /** The logger. */
@@ -253,13 +261,15 @@ export class ClaudeRunner implements AgentRunner {
     // The engine's prompt sections become the CLI's system prompt, in the order they were added.
     const sections = [...agent.sections].sort((a, b) => a.order - b.order)
     const systemPrompt = sections.map(section => section.text({ bound: true })).filter(Boolean).join('\n\n')
+    // A worker may run a different CLI from the router: only the router has to prove it has no built-in tools.
+    const cli = agent.role === 'orchestrator' ? this.options.cli : this.options.workerCli ?? this.options.cli
     const spec = {
-      command: this.options.cli.command,
-      args: this.options.cli.args ?? [],
+      command: cli.command,
+      args: cli.args ?? [],
       cwd: agent.cwd,
       prompt: prompt.content.map(block => block.text ?? '').join('\n'),
       ...agent.sessionId ? { sessionId: agent.sessionId } : {},
-      ...agent.model?.model ? { model: agent.model.model } : this.options.cli.model ? { model: this.options.cli.model } : {},
+      ...agent.model?.model ? { model: agent.model.model } : cli.model ? { model: cli.model } : {},
       mcpConfig: server ? JSON.stringify({ mcpServers: { superagent: { type: 'http', url: server.url,
         headers: { authorization: `Bearer ${server.token}` } } } }) : '',
       ...systemPrompt ? { systemPrompt } : {},

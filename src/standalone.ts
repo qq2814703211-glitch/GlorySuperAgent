@@ -36,6 +36,8 @@ export interface StandaloneOptions {
   readonly panelDirectory?: string
   /** The coding-agent CLI the agent side runs; without one, no agent can run. */
   readonly cli?: CliConfig
+  /** The CLI that runs workers, when it differs from the router's; `adapters/` holds ones that speak the contract. */
+  readonly workerCli?: CliConfig
   /**
    * How agents are confined. `auto`, the default, uses the sandbox this machine has and refuses to start an agent side
    * without one; `off` runs agents unconfined, as the operator's own user.
@@ -69,7 +71,8 @@ export const standaloneMachine = (stateDir: string): Machine => ({
  * With a CLI configured, the runner is the one over that CLI, and every agent reaches the engine's tools through an MCP
  * server the engine serves. Without one, the runner has no agent to create and every ticket that needs one fails visibly.
  */
-export function standalonePorts(cli?: CliConfig, confinement?: { stateDir: string; mode?: SandboxMode; extras?: SandboxExtras }): AgentPorts {
+export function standalonePorts(cli?: CliConfig, confinement?: { stateDir: string; mode?: SandboxMode; extras?: SandboxExtras },
+  workerCli?: CliConfig): AgentPorts {
   const transcripts: TranscriptStore = {
     flush: async () => { /* The CLI's own session files hold the transcript. */ },
     readUserMessages: async () => [],
@@ -85,10 +88,12 @@ export function standalonePorts(cli?: CliConfig, confinement?: { stateDir: strin
   if (sandbox) logger.info('superagent: agents run in the %s sandbox', sandbox.name)
   else logger.warn('superagent: the sandbox is off; agents run as your own user and can read and change anything you can')
   const confine = sandbox && confinement
-    ? (workspace: string, argv: readonly string[]) => sandbox.wrap(argv, policyFor({ workspace, stateDir: confinement.stateDir, command: cli.command,
+    ? (workspace: string, argv: readonly string[]) => sandbox.wrap(argv, policyFor({ workspace, stateDir: confinement.stateDir,
+        // The worker's CLI may not be the router's, so the policy reads the command the turn actually runs.
+        command: String(argv[0] ?? cli.command),
         ...confinement.extras ? { extras: confinement.extras } : {} })).argv
     : undefined
-  const runner = new ClaudeRunner({ cli, subprocess: nodeSubprocess, logger, ...confine ? { confine } : {},
+  const runner = new ClaudeRunner({ cli, ...workerCli ? { workerCli } : {}, subprocess: nodeSubprocess, logger, ...confine ? { confine } : {},
     // The CLI reaches the engine's tools through an MCP server the engine serves, one per agent. The server offers the
     // tools the engine bound on that agent, and a tool the engine released stops answering.
     mcp: async agent => {
@@ -131,7 +136,7 @@ export async function startStandalone(options: StandaloneOptions = {}): Promise<
     for (const stop of sources) await stop()
     sources = []
     runtime = new Runtime(host, standalonePorts(options.cli, { stateDir, ...options.sandbox ? { mode: options.sandbox } : {},
-      ...options.sandboxExtras ? { extras: options.sandboxExtras } : {} }), machine, restart)
+      ...options.sandboxExtras ? { extras: options.sandboxExtras } : {} }, options.workerCli), machine, restart)
     // The Sources reach the engine through the `SourceHost` interface, which the runtime implements.
     const sourceHost = runtime as unknown as SourceHost
     await runtime.ready

@@ -1,0 +1,15 @@
+#!/usr/bin/env node
+/** A stand-in for `codex exec`: records its argv, prints the events a real turn prints. */
+import { writeFileSync } from 'node:fs'
+const argv = process.argv.slice(2)
+if (process.env.FAKE_ARGV_OUT) writeFileSync(process.env.FAKE_ARGV_OUT, JSON.stringify(argv))
+const fail = process.env.FAKE_FAIL
+const thread = process.env.FAKE_THREAD ?? 'thread-fake-1'
+process.stdout.write(`${JSON.stringify({ type: 'thread.started', thread_id: thread })}\n`)
+process.stdout.write(`${JSON.stringify({ type: 'turn.started' })}\n`)
+process.stdout.write(`${JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: 'ok' } })}\n`)
+if (fail) {
+  process.stdout.write(`${JSON.stringify({ type: 'error', message: fail })}\n`)
+  process.exit(1)
+}
+process.stdout.write(`${JSON.stringify({ type: 'turn.completed', usage: { input_tokens: 1, output_tokens: 1 } })}\n`)

@@ -1,0 +1,17 @@
+#!/usr/bin/env node
+/** A stand-in for `agy`: answers `mcp add`/`mcp remove`, records the turn's argv, prints a result event. */
+import { appendFileSync, writeFileSync } from 'node:fs'
+const argv = process.argv.slice(2)
+if (argv[0] === 'mcp') {
+  // Control subcommands: the adapter must be able to add and remove the server without a turn.
+  if (process.env.FAKE_MCP_LOG) appendFileSync(process.env.FAKE_MCP_LOG, `${argv.join(' ')}\n`)
+  process.exit(argv[1] === 'add' || argv[1] === 'remove' ? 0 : 2)
+}
+if (process.env.FAKE_ARGV_OUT) writeFileSync(process.env.FAKE_ARGV_OUT, JSON.stringify(argv))
+const conversation = process.env.FAKE_CONVERSATION ?? 'conv-fake-1'
+if (process.env.FAKE_FAIL) {
+  process.stdout.write(`${JSON.stringify({ event: 'result', result: { conversation_id: '', status: 'ERROR', response: '', error: process.env.FAKE_FAIL, finished_reason: 'error' } })}\n`)
+  process.exit(0)
+}
+process.stdout.write(`${JSON.stringify({ event: 'step', step: { index: 1 } })}\n`)
+process.stdout.write(`${JSON.stringify({ event: 'result', result: { conversation_id: conversation, status: 'DONE', response: 'ok', error: '', finished_reason: 'stop' } })}\n`)
