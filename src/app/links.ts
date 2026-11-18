@@ -1,8 +1,10 @@
 /** Source message link resolution and candidate card assembly for the main Session. */
 import type { Candidate, Ticket, Trigger } from '../core/index.ts'
 import type { Commands } from '../infra/commands.ts'
+import { repositoriesOf } from '../deployment.ts'
 import { readFeishuLink } from '../sources/feishu-read.ts'
 import { feishuRef, feishuSettings } from '../sources/feishu.ts'
+import { repositoryOfThread } from '../sources/github-trigger.ts'
 import type { SourceRegistry } from '../sources/registry.ts'
 import { triggerMessage } from '../executor/dsh.ts'
 import { relatedTickets, ticketCard, triggerCard } from './cards.ts'
@@ -46,7 +48,12 @@ export function repliedTo({ store, sources }: { store: Pick<Store, 'triggers'>; 
 }
 /** Finds tickets subscribed to threads referenced in `trigger.text` (such as `#12` or URLs) that are not already in `known`. */
 function referencedTickets(host: LinkHost, trigger: Trigger, known: readonly Ticket[]): Ticket[] {
-  const threads = (trigger.text.match(/#\d+|https?:\/\/[^\s)>\]]+/g) ?? []).flatMap(reference => host.sources.find(reference).threads)
+  // A bare number refers to the Trigger's own repository, since two repositories may both have #12; a message from
+  // another Source falls back to the primary repository.
+  const configured = host.store.settings().sources.github?.config.repository
+  const repository = repositoryOfThread(trigger.threads.find(ref => ref.source === 'github')?.id ?? '')
+    ?? repositoriesOf(typeof configured === 'string' ? configured : '')[0]
+  const threads = (trigger.text.match(/#\d+|https?:\/\/[^\s)>\]]+/g) ?? []).flatMap(reference => host.sources.find(reference, repository).threads)
   const ids = new Set(threads.flatMap(thread => host.store.threads.get(thread)?.subscriptions ?? []))
   for (const ticket of known) ids.delete(ticket.id)
   return [...ids].flatMap(id => host.store.tickets.get(id) ?? []).slice(0, 4)

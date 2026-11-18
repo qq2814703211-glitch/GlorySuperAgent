@@ -1,5 +1,6 @@
 /** Thread list, timeline detail, cross-entity search, and decision list views. */
 import { threadKey, type Thread, type Ticket, type Trigger } from '../../core/index.ts'
+import { repositoriesOf } from '../../deployment.ts'
 import type { ThreadFilter } from '../api.ts'
 import type { TextCache } from '../cache.ts'
 import { awaitingEval, channelLink, dayAgo, decisionView, newestFirst, page, snapshot, threadSummary, threadTitle, ticketLine,
@@ -61,7 +62,9 @@ export function search(host: ViewHost, query: string, links: Pick<TextCache, 'en
   const value = query.trim()
   if (!value) return { tickets: [], items: [], threads: [] }
   const view = snapshot(host)
-  const named = sources.find(value)
+  // A bare number is searched in the deployment's first repository, as the Source's settings name it.
+  const configured = store.settings().sources.github?.config.repository
+  const named = sources.find(value, repositoriesOf(typeof configured === 'string' ? configured : '')[0])
   const terms = new Set([value, ...named.terms])
   for (const [name, url] of links.entries()) if (url === value) terms.add(name.split(':').at(-1)!)
   const found = new Map<string, Trigger>()

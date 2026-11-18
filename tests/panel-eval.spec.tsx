@@ -190,17 +190,17 @@ it('lists each Source\'s bots next to its people and saves them, and sets the Gi
   expect(server.settings.policy.sources.github!.bots).toEqual([{ id: 'dependabot[bot]' }])
 })
 
-it('shows the GitHub Source\'s switches for what it receives across the repository, and the admission rows they open, in English', async () => {
+it('shows the GitHub Source\'s switches for what it receives across the repositories, and the admission rows they open, in English', async () => {
   server.settings.sources.github = { ...server.settings.sources.github!, config: { ...server.settings.sources.github!.config,
     observeIssues: true, observeCi: true } }
   await mount(en)
   await click(tab(en['tab.settings']))
   const github = all('.dt-card').find(card => card.querySelector('.dt-card-title')?.textContent === 'GitHub')!
   expect([...github.querySelectorAll('.dt-switch-row')].map(row => [row.textContent, row.querySelector('[role="switch"]')
-    ?.getAttribute('aria-checked')])).toEqual([['Receive new Issues in the repository', 'true'],
-    ['Receive new pull requests in the repository', 'false'], ['Receive comments in the repository', 'false'],
-    ['Receive the default branch\'s CI', 'true']])
-  await click(find('Receive comments in the repository', '[role="switch"]'))
+    ?.getAttribute('aria-checked')])).toEqual([['Receive new Issues in the repositories', 'true'],
+    ['Receive new pull requests in the repositories', 'false'], ['Receive comments in the repositories', 'false'],
+    ['Receive each default branch\'s CI', 'true']])
+  await click(find('Receive comments in the repositories', '[role="switch"]'))
   await act(async () => { github.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })) }); await settle()
   expect(server.settings.sources.github!.config).toMatchObject({ observeIssues: true, observeComments: true, observeCi: true })
   await click(find(en['term.eval'], '.dt-settings-link'))

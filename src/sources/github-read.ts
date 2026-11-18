@@ -2,7 +2,7 @@
 import { z } from 'zod'
 import type { ThreadFact } from '../core/index.ts'
 import { validItems, type Commands, type Tally } from '../infra/commands.ts'
-import { CommentSchema, IssueSchema, isHumanLogin, reviewPlace, type GithubComment } from './github-trigger.ts'
+import { CommentSchema, IssueSchema, isHumanLogin, repositoryOfThread, reviewPlace, SOURCE, type GithubComment } from './github-trigger.ts'
 import type { ContextMessage, ThreadContext } from './kind.ts'
 
 const CheckSchema = z.looseObject({ name: z.string(), status: z.string(), conclusion: z.string().nullable() })
@@ -99,7 +99,8 @@ function threadMessages(thread: GithubComment[], id: (comment: GithubComment) =>
  * Reads an Issue or PR, a page of its comments or reviews, a review thread, or a CI snapshot as model-facing
  * `{ id, from, at, text, reply_to?, path?, line?, url }` messages rather than raw GitHub API records.
  */
-export async function readGithub(commands: Commands, resource: string): Promise<unknown> {
+export async function readGithub(unbound: Commands, repository: string, resource: string): Promise<unknown> {
+  const commands = unbound.forRepository(repository)
   // A commit's CI, such as the default branch's, which no PR names.
   const commit = /^github\/commits\/([0-9a-f]{7,40})\/checks$/.exec(resource)
   if (commit) return pullChecks(commands, commit[1]!)
@@ -159,6 +160,11 @@ async function conversationPage(commands: Commands, number: number, page: number
 export const githubThreadContext: ThreadContext<unknown> = {
   messageId: trigger => trigger.url ?? '',
   read: async (commands, trigger, part, cursor) => {
+    // The Trigger's Thread id names the repository, so a database from before schema 12 fails here rather than guessing.
+    const thread = trigger.threads.find(ref => ref.source === SOURCE)?.id ?? ''
+    const repository = repositoryOfThread(thread)
+    if (!repository) throw new Error(`GitHub trigger ${trigger.id} names no repository on its Thread ${thread}`)
+    const scoped = commands.forRepository(repository)
     // The default branch's CI has no conversation; its Trigger is its context.
     if (typeof trigger.meta.branch === 'string') {
       const message = { id: trigger.url ?? trigger.id, from: 'CI', at: trigger.at, text: trigger.text, bot: true as const }
@@ -166,12 +172,12 @@ export const githubThreadContext: ThreadContext<unknown> = {
     }
     const number = Number(trigger.meta.number)
     if (trigger.meta.kind === 'inline' && typeof trigger.meta.commentId === 'number') {
-      const thread = await reviewThread(commands, number, trigger.meta.commentId)
-      const messages = threadMessages(thread, item => item.html_url ?? String(item.id))
+      const replies = await reviewThread(scoped, number, trigger.meta.commentId)
+      const messages = threadMessages(replies, item => item.html_url ?? String(item.id))
       const read = part === 'thread' ? messages : messages.slice(0, 1)
       return { messages: read, body: { status: 'review_thread', messages: read }, status: 'review_thread' }
     }
-    const body = await conversationPage(commands, number, Number(cursor ?? '1'))
+    const body = await conversationPage(scoped, number, Number(cursor ?? '1'))
     return { messages: body.messages, next: body.next_resource ?? undefined, body }
   },
 }

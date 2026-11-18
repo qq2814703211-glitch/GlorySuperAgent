@@ -4,6 +4,7 @@ import { basename } from 'node:path'
 import { promisify } from 'node:util'
 import { z } from 'zod'
 import type { Deployment } from '../deployment.ts'
+import { sameName } from './text.ts'
 
 const exec = promisify(execFile)
 const TIMEOUT_MS = 90_000
@@ -54,17 +55,26 @@ function membership(error: unknown): unknown {
 }
 /**
  * Executes gh, lark-cli, and git subprocesses with deployment account credentials, timeouts, and abort signals.
- * Restricts GitHub API calls to the configured repository and translates CLI failures into CliError instances for Sources, MasterAssessor, Outbox, and Settings.
+ * Restricts GitHub API calls to the repository a command object is bound to, and translates CLI failures into CliError
+ * instances for Sources, MasterAssessor, Outbox, and Settings.
  */
 export class Commands {
   /**
    * @param resolved - returns the resolved deployment setup, or throws while setup is still pending.
    * @param environment - variables overriding `process.env` for every command (such as isolated git settings).
+   * @param repository - the repository every GitHub API path is built under; `forRepository` binds it for a Source that
+   * serves several repositories, so no caller reads one from the deployment.
    */
-  constructor(private readonly resolved: () => Deployment, private readonly environment: Record<string, string | undefined>, private readonly signal: AbortSignal) {}
+  constructor(private readonly resolved: () => Deployment, private readonly environment: Record<string, string | undefined>,
+    private readonly signal: AbortSignal, private readonly repository?: string) {}
   get deployment(): Deployment { return this.resolved() }
-  get repository(): string { return this.deployment.repository }
-  withSignal(signal?: AbortSignal): Commands { return signal ? new Commands(this.resolved, this.environment, AbortSignal.any([this.signal, signal])) : this }
+  /** The same runner restricted to `repository`, as a Source handles one repository per poll round. */
+  forRepository(repository: string): Commands {
+    return this.repository !== undefined && sameName(this.repository, repository) ? this
+      : new Commands(this.resolved, this.environment, this.signal, repository)
+  }
+  withSignal(signal?: AbortSignal): Commands { return signal
+    ? new Commands(this.resolved, this.environment, AbortSignal.any([this.signal, signal]), this.repository) : this }
   async run(program: string, args: string[], cwd?: string): Promise<string> {
     try {
       const { stdout } = await exec(program, args, { cwd, signal: this.signal, timeout: TIMEOUT_MS, maxBuffer: 16 * 1024 * 1024,
@@ -72,11 +82,11 @@ export class Commands {
       return stdout
     } catch (error) { throw commandError(error, program) }
   }
-  /** Runs the agent's GitHub CLI and parses its JSON output; callers should prefer `api`, which is restricted to the configured repository and validates output. */
+  /** Runs the agent's GitHub CLI and parses its JSON output; callers should prefer `api`, which is restricted to a repository and validates output. */
   async gh<T>(args: string[]): Promise<T> { return JSON.parse(await this.run(this.deployment.github.cli, args)) as T }
   /**
-   * Calls the GitHub API on a path within the configured repository, validating JSON output when a schema is provided
-   * or returning raw CLI output (such as raw files or `--include` headers) when omitted.
+   * Calls the GitHub API on a path within the repository this command object is bound to, validating JSON output when a
+   * schema is provided or returning raw CLI output (such as raw files or `--include` headers) when omitted.
    * @throws CliError with GitHub's HTTP status as `code` on failure.
    */
   async api<T>(schema: z.ZodType<T>, path: string, ...flags: string[]): Promise<T>
@@ -86,7 +96,7 @@ export class Commands {
     const [path = '', ...flags] = rest
     return schema.parse(await this.gh(['api', this.path(path), ...flags]))
   }
-  /** Fetches all pages of a GitHub API list within the configured repository, skipping items that fail schema validation. */
+  /** Fetches all pages of a GitHub API list within the bound repository, skipping items that fail schema validation. */
   async pages<T>(item: z.ZodType<T>, path: string, tally?: Tally): Promise<T[]> {
     const pages = z.array(z.array(z.unknown())).parse(await this.gh(['api', this.path(path), '--paginate', '--slurp']))
     return validItems(item, pages.flat(), tally)
@@ -94,6 +104,7 @@ export class Commands {
   private path(path: string): string {
     const outside = /^\/|^[a-z]+:|(^|\/)\.\.?(\/|\?|$)/i.test(path)
     if (outside) throw new Error('GitHub calls are restricted to the configured repository')
+    if (!this.repository) throw new Error('A GitHub API call must name its repository: call commands.forRepository(owner/name) first')
     return path ? `repos/${this.repository}/${path}` : `repos/${this.repository}`
   }
   /**

@@ -17,7 +17,7 @@ import { Sessions } from '../src/app/sessions.ts'
 import { startRuntime, type Host } from './fixtures/host.ts'
 import { recordingPorts } from './fixtures/ports.ts'
 
-const AGENT = 'agent-bot', ISSUE = { number: 7, isPr: false }
+const AGENT = 'agent-bot', ISSUE = { repository: 'acme/widgets', number: 7, isPr: false }
 const comment = (id: number, login: string, body: string) => commentTrigger({ id, body, user: { login, type: 'User' }, created_at: `2026-09-09T00:00:0${id}Z`,
   html_url: `https://github.com/acme/widgets/issues/7#issuecomment-${id}` }, ISSUE, 'conversation', AGENT)
 

@@ -2,6 +2,7 @@
 import { UserError, key, latestReport, reached, runningAssignment, threadKey, type Ticket, type Trigger } from '../core/index.ts'
 import { batchOf, inputMessage, triggerMessage, workerSessionId } from '../executor/dsh.ts'
 import { readGithub } from '../sources/github-read.ts'
+import { repositoryOfTicket } from '../sources/github-pull.ts'
 import { feishuReferences, feishuRead } from '../sources/feishu-read.ts'
 import { feishuRef } from '../sources/feishu.ts'
 import { feishuTriggerId } from '../sources/feishu-trigger.ts'
@@ -200,7 +201,13 @@ const ROUTES: readonly Route[] = [
     const commands = read.host.commands.withSignal(read.signal)
     return sourcePage(read, 'feishu', () => feishuRead(commands, ref, read.resource, read.host.feishuPageSize()))
   }],
-  ['github/', read => sourcePage(read, 'github', () => readGithub(read.host.commands.withSignal(read.signal), read.resource))],
+  ['github/', read => {
+    // A GitHub original is read in the repository its ticket belongs to; without one, the primary repository.
+    const ticket = read.ticketId ? read.host.store.tickets.get(read.ticketId) : undefined
+    const repository = ticket ? repositoryOfTicket({ triggers: read.host.store.triggers, deployment: read.host.commands.deployment }, ticket)
+      : read.host.commands.deployment.repository
+    return sourcePage(read, 'github', () => readGithub(read.host.commands.withSignal(read.signal), repository, read.resource))
+  }],
   ['trigger/', async read => {
     const { host, rest, ticketId, offset, signal } = read
     if (!rest || rest.includes('/')) throw new Error('Unknown context resource')
