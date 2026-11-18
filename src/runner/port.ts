@@ -88,7 +88,13 @@ export interface AgentHandle {
   inject(message: RunnerMessage): void
 }
 
-export interface SpecOfAgent { readonly id: string; readonly cwd: string; readonly role: Role }
+export interface SpecOfAgent {
+  readonly id: string
+  readonly cwd: string
+  readonly role: Role
+  /** The CLI that runs this agent, when the ticket named one; absent means the runner's default. */
+  readonly harness?: string
+}
 
 /** Events a runner reports; each subscription returns its release. */
 export interface RunnerEvents {

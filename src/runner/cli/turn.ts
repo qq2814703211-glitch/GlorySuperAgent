@@ -31,6 +31,8 @@ export interface TurnSpec {
   readonly sessionId?: string
   /** The model the CLI runs with. */
   readonly model?: string
+  /** The reasoning effort the CLI runs with, for a CLI that takes one. */
+  readonly effort?: string
   /** The MCP configuration the CLI loads, as a JSON string. */
   readonly mcpConfig: string
   /** The system prompt the engine bound on the agent, which replaces the CLI's own. */
@@ -62,6 +64,7 @@ export function turnArgs(spec: TurnSpec): string[] {
   // The engine's prompt replaces the CLI's own, so the agent runs under the engine's instructions only.
   if (spec.systemPrompt) args.push('--system-prompt', spec.systemPrompt)
   if (spec.model) args.push('--model', spec.model)
+  if (spec.effort) args.push('--effort', spec.effort)
   // A turn that continues a conversation resumes it; a turn that starts one names the id it will use.
   if (spec.sessionId) args.push('--resume', spec.sessionId)
   else args.push('--session-id', randomUUID())

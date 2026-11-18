@@ -30,9 +30,32 @@ So they are wired as **workers only**, through `--worker-cli`, which this fork a
 
 | Adapter | CLI it drives | MCP to the engine tools | Session resume | State |
 | --- | --- | --- | --- | --- |
-| `codex.mjs` | `codex exec --json` | yes — `-c mcp_servers.<name>.url` + `http_headers` | `codex exec resume <id>` | flags translated and exercised; **auth is a placeholder key (`123`), so a turn ends in 401** |
-| `dsh.mjs` | `dsh --profile headless --json` | **no** — the headless profile ships no MCP plugin | `--session-id <id>` | events mapped, failure-in-zero-exit handled; **no `DEEPSEEK_API_KEY`, so a turn fails with MISSING_CREDENTIAL** |
-| `agy.mjs` | `agy -p ... --output-format stream-json` | yes, but globally: `agy mcp add` writes `~/.gemini/config/mcp_config.json`, so turns take a lock and clean up | `--conversation <id>` | flags translated; **the Google account is not eligible for Antigravity, so a turn ends in an eligibility error** |
+| `codex.mjs` | `codex exec --json` | yes — `-c mcp_servers.<name>.url` + `http_headers` | `codex exec resume <id>` | flags translated and exercised; the signed-in route answers |
+| `dsh.mjs` | `dsh --profile headless --json` | **no** — the headless profile ships no MCP plugin | `--session-id <id>` | events mapped, failure-in-zero-exit handled; no `DEEPSEEK_API_KEY` yet |
+| `agy.mjs` | `agy -p ... --output-format stream-json` | yes, but globally: `agy mcp add` writes `~/.gemini/config/mcp_config.json`, so turns take a lock and clean up | `--conversation <id>` | wired and calling engine tools; see the permission note below |
+
+### Per-ticket harness
+
+A request may name the CLI that runs it, so one repository can send a hard refactor to one CLI and a quick fix to
+another:
+
+```
+[antigravity] fix the flaky test
+fix it harness=codex please
+```
+
+`src/core/harnesses.ts` reads the marker, the ticket keeps it (`ticket.harness`), and the runner runs that entry of
+`harnesses.json` for the worker turn. A ticket that names none runs `default`; a name the table does not hold falls back
+to `default` rather than failing the ticket.
+
+`harnesses.json` at the repository root is the table: `router` (the CLI that reads text from strangers), `default`, and
+one entry per harness with `command`, `args`, `model`, `effort`, `readable` and `state`. `readable` and `state` matter:
+the host's seatbelt denies the home directory, so a CLI's own install and state have to be named or a working CLI turns
+into a turn that dies on `EACCES`.
+
+**The router is not the commander.** It is the gatekeeper that reads untrusted text: one turn, no memory, no built-in
+tool, one repository. The commander is the operator's agent, which decides what to dispatch and to whom — and the harness
+marker is how that decision reaches the pipeline.
 
 What the contract test (`node adapters/test/conformance.mjs`, 34 checks) proves, against fake CLIs and a fake MCP
 server: flag translation, the init event, the tool list coming from the engine's server, session propagation, MCP wiring,

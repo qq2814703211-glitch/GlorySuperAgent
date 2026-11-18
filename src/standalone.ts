@@ -38,6 +38,9 @@ export interface StandaloneOptions {
   readonly cli?: CliConfig
   /** The CLI that runs workers, when it differs from the router's; `adapters/` holds ones that speak the contract. */
   readonly workerCli?: CliConfig
+  /** The CLIs a ticket can name by harness (`[codex] fix it`), and the one a ticket without a name runs. */
+  readonly harnesses?: Readonly<Record<string, CliConfig>>
+  readonly defaultHarness?: string
   /**
    * How agents are confined. `auto`, the default, uses the sandbox this machine has and refuses to start an agent side
    * without one; `off` runs agents unconfined, as the operator's own user.
@@ -72,7 +75,7 @@ export const standaloneMachine = (stateDir: string): Machine => ({
  * server the engine serves. Without one, the runner has no agent to create and every ticket that needs one fails visibly.
  */
 export function standalonePorts(cli?: CliConfig, confinement?: { stateDir: string; mode?: SandboxMode; extras?: SandboxExtras },
-  workerCli?: CliConfig): AgentPorts {
+  workerCli?: CliConfig, harnesses?: Readonly<Record<string, CliConfig>>, defaultHarness?: string): AgentPorts {
   const transcripts: TranscriptStore = {
     flush: async () => { /* The CLI's own session files hold the transcript. */ },
     readUserMessages: async () => [],
@@ -87,13 +90,20 @@ export function standalonePorts(cli?: CliConfig, confinement?: { stateDir: strin
   const sandbox = chooseSandbox(confinement?.mode)
   if (sandbox) logger.info('superagent: agents run in the %s sandbox', sandbox.name)
   else logger.warn('superagent: the sandbox is off; agents run as your own user and can read and change anything you can')
+  // Every CLI an agent may run, so the sandbox can name the paths that CLI needs beyond its own install.
+  const everyCli = [cli, ...workerCli ? [workerCli] : [], ...Object.values(harnesses ?? {})]
   const confine = sandbox && confinement
-    ? (workspace: string, argv: readonly string[]) => sandbox.wrap(argv, policyFor({ workspace, stateDir: confinement.stateDir,
+    ? (workspace: string, argv: readonly string[]) => {
         // The worker's CLI may not be the router's, so the policy reads the command the turn actually runs.
-        command: String(argv[0] ?? cli.command),
-        ...confinement.extras ? { extras: confinement.extras } : {} })).argv
+        const command = String(argv[0] ?? cli.command)
+        const entry = everyCli.find(candidate => candidate.command === command)
+        const readable = [...confinement.extras?.readable ?? [], ...entry?.readable ?? []]
+        return sandbox.wrap(argv, policyFor({ workspace, stateDir: confinement.stateDir, command,
+          extras: { ...confinement.extras, readable }, ...entry?.state ? { cliState: entry.state } : {} })).argv
+      }
     : undefined
-  const runner = new ClaudeRunner({ cli, ...workerCli ? { workerCli } : {}, subprocess: nodeSubprocess, logger, ...confine ? { confine } : {},
+  const runner = new ClaudeRunner({ cli, ...workerCli ? { workerCli } : {}, ...harnesses ? { harnesses } : {},
+    ...defaultHarness ? { defaultHarness } : {}, subprocess: nodeSubprocess, logger, ...confine ? { confine } : {},
     // The CLI reaches the engine's tools through an MCP server the engine serves, one per agent. The server offers the
     // tools the engine bound on that agent, and a tool the engine released stops answering.
     mcp: async agent => {
@@ -136,7 +146,8 @@ export async function startStandalone(options: StandaloneOptions = {}): Promise<
     for (const stop of sources) await stop()
     sources = []
     runtime = new Runtime(host, standalonePorts(options.cli, { stateDir, ...options.sandbox ? { mode: options.sandbox } : {},
-      ...options.sandboxExtras ? { extras: options.sandboxExtras } : {} }, options.workerCli), machine, restart)
+      ...options.sandboxExtras ? { extras: options.sandboxExtras } : {} }, options.workerCli, options.harnesses,
+      options.defaultHarness), machine, restart)
     // The Sources reach the engine through the `SourceHost` interface, which the runtime implements.
     const sourceHost = runtime as unknown as SourceHost
     await runtime.ready

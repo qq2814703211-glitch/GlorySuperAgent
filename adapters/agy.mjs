@@ -70,7 +70,15 @@ async function agyControl(args) {
   return code === 0 ? undefined : (stderr || `agy ${args[0]} ended with ${code}`)
 }
 
-const args = ['-p', joinPrompt(contract.systemPrompt, contract.prompt), '--output-format', 'stream-json']
+// agy auto-denies a tool call that would need a permission prompt, and headless mode has no one to ask: without this the
+// model's MCP call is silently dropped and the turn ends with an empty answer. The host already grants a worker full
+// access and confines the process in the operating system's sandbox, so the inner prompt adds a failure mode, not safety.
+const args = ['-p', joinPrompt(contract.systemPrompt, contract.prompt), '--output-format', 'stream-json',
+  '--dangerously-skip-permissions']
+// A background job the model leaves running keeps print mode waiting ("root agent idle; waiting for N background
+// task(s)") until the host kills the turn. Ending it here turns a stuck job into a reported failure.
+const printTimeout = Number(process.env.SA_AGY_PRINT_TIMEOUT ?? 20 * 60_000)
+if (printTimeout > 0) args.push('--print-timeout', `${printTimeout}ms`)
 if (contract.model) args.push('--model', contract.model)
 if (contract.effort) args.push('--effort', contract.effort)
 if (contract.noCommands) args.push('--disable-slash-commands')
@@ -107,6 +115,12 @@ try {
     }
     emitEvent(`agy/${type}`, { data: parsed })
   })
+  // Opt-in: the host gives a turn no terminal, so a failing turn is otherwise silent. SA_ADAPTER_LOG names a file
+  // that records the turn's outcome and its stderr tail.
+  if (process.env.SA_ADAPTER_LOG) {
+    const { appendFileSync } = await import('node:fs')
+    appendFileSync(process.env.SA_ADAPTER_LOG, `${new Date().toISOString()} agy exit=${code} failure=${reportedFailure ?? 'none'} stderr=${(stderr ?? '').slice(-800).replaceAll('\n', ' | ')}\n`)
+  }
   if (code !== 0) outcome = stderr || reportedFailure || `agy ended with ${code}`
   else if (reportedFailure) outcome = reportedFailure
 } finally {

@@ -297,6 +297,8 @@ export interface Ticket {
   follows?: Follow[]
   /** People's questions the worker answered, whose answers the main Session may send. */
   answers?: string[]
+  /** The CLI that runs this ticket's worker, from a `[name]` or `harness=name` in the request; absent means the default. */
+  harness?: string
   createdAt: string
   updatedAt: string
   /** The Triggers it was accepted from: the one that started it, and the batch its Eval held. */

@@ -1,6 +1,7 @@
 /** Tickets: their lifecycle from an accept to their end, their Subscriptions and their Inputs. */
 import { key } from './ids.ts'
 import { UserError } from './errors.ts'
+import { namedHarness } from './harnesses.ts'
 import { latestAssignment, latestReport, liveTicket, readUntil, runningAssignment, settled, threadKey, waitsForPerson } from './model.ts'
 import type { Assignment, ChannelRef, Evaluation, Follow, Mandate, PolicyEffect, ThreadRef, Ticket, TicketEndBy, TicketInput, TicketOutcome,
   Trigger, TriggerDisposition } from './model.ts'
@@ -42,6 +43,9 @@ export class Tickets extends EnginePart {
     const origin = { triggerId: primary?.id ?? triggerIds[0]!, triggerIds }
     let ticket: Ticket = { id, title: outcome.title, decisionId, mandate, channels: [], assignments: [], inputs: [], undelivered: [],
       createdAt: at, updatedAt: at, origin }
+    // A request may name the CLI that runs it; the name travels in the text of the Trigger the Eval accepted.
+    const harness = primary?.text ? namedHarness(primary.text) : undefined
+    if (harness) ticket.harness = harness
     for (const triggerId of triggerIds) {
       const channel = this.repo.triggers.get(triggerId)?.channel
       if (channel && !ticket.channels.some(item => sameChannel(item, channel))) ticket.channels.push(channel)

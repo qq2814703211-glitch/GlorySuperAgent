@@ -9,6 +9,7 @@
  * loopback interface; the panel token in the state directory authorizes it.
  */
 import { spawn } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 /** The host is built into `lib`; a checkout that was not built says what to run instead of failing on a missing file. */
 const { startStandalone } = await import('../lib/standalone.js').catch(error => {
   if (error?.code === 'ERR_MODULE_NOT_FOUND') { console.error('superagent is not built yet. Run `pnpm build`, then start it again.'); process.exit(1) }
@@ -26,6 +27,8 @@ function options(argv) {
     else if (argument === '--cli-model') values.cliModel = argv[++index]
     else if (argument === '--worker-cli') values.workerCli = argv[++index]
     else if (argument === '--worker-cli-model') values.workerCliModel = argv[++index]
+    else if (argument === '--harnesses') values.harnesses = argv[++index]
+    else if (argument === '--default-harness') values.defaultHarness = argv[++index]
     else if (argument === '--no-open') values.noOpen = true
     else if (argument === '--sandbox') values.sandbox = argv[++index]
     else if (argument === '--allow-read') (values.readable ??= []).push(argv[++index])
@@ -38,12 +41,18 @@ function options(argv) {
   return values
 }
 
+/** A JSON file of harness entries: `{ router?, default, harnesses: { name: { command, args?, model?, effort?, readable?, state? } } }`. */
 const values = options(process.argv.slice(2))
+const harnessFile = values.harnesses ?? process.env.SUPERAGENT_HARNESSES
+const harnessTable = harnessFile ? JSON.parse(readFileSync(harnessFile, 'utf8')) : undefined
 const stateDir = values.stateDir ?? process.env.SUPERAGENT_STATE_DIR
 const port = values.port ?? (process.env.SUPERAGENT_PORT ? Number(process.env.SUPERAGENT_PORT) : undefined)
-const cli = values.cli ?? process.env.SUPERAGENT_CLI
-const cliModel = values.cliModel ?? process.env.SUPERAGENT_CLI_MODEL
+/** The router entry of the harness file: the CLI that reads text from strangers, and the model it answers with. */
+const routerEntry = harnessTable?.router
+const cli = values.cli ?? process.env.SUPERAGENT_CLI ?? routerEntry?.command
+const cliModel = values.cliModel ?? process.env.SUPERAGENT_CLI_MODEL ?? routerEntry?.model
 const workerCli = values.workerCli ?? process.env.SUPERAGENT_WORKER_CLI
+const defaultHarness = values.defaultHarness ?? process.env.SUPERAGENT_DEFAULT_HARNESS ?? harnessTable?.default
 const workerCliModel = values.workerCliModel ?? process.env.SUPERAGENT_WORKER_CLI_MODEL
 /** The default port, which keeps the panel's address the same from one start to the next. */
 const DEFAULT_PORT = 3082
@@ -54,6 +63,8 @@ const start = port => startStandalone({
   ...values.readable || values.writable ? { sandboxExtras: { readable: values.readable ?? [], writable: values.writable ?? [] } } : {},
   ...cli ? { cli: { command: cli, ...cliModel ? { model: cliModel } : {} } } : {},
   ...workerCli ? { workerCli: { command: workerCli, ...workerCliModel ? { model: workerCliModel } : {} } } : {},
+  ...harnessTable?.harnesses ? { harnesses: harnessTable.harnesses } : {},
+  ...defaultHarness ? { defaultHarness } : {},
 })
 let host
 try { host = await start(port ?? DEFAULT_PORT) }
@@ -66,6 +77,7 @@ const url = `http://127.0.0.1:${host.host.http.port}/`
 console.log(`superagent is running. Open the panel at ${url}`)
 console.log(`the agent CLI is ${cli ?? 'not configured; a ticket that needs an agent will fail'}`)
 if (workerCli) console.log(`the worker CLI is ${workerCli}`)
+if (harnessTable?.harnesses) console.log(`harnesses: ${Object.keys(harnessTable.harnesses).join(', ')}; default ${defaultHarness ?? 'none'}`)
 if (!values.noOpen && !process.env.CI) {
   const opener = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'explorer' : 'xdg-open'
   spawn(opener, [url], { stdio: 'ignore', detached: true }).on('error', () => {}).unref()

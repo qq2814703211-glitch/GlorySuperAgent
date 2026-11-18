@@ -8,16 +8,19 @@
  * test is skipped where it is not installed or not signed in.
  */
 import { execFile } from 'node:child_process'
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { dirname } from 'node:path'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
+import { fileURLToPath } from 'node:url'
 import { afterEach, expect, it, vi } from 'vitest'
 import { startStandalone, type Standalone } from '../src/standalone.ts'
 import { SettingsSchema } from '../src/policy.ts'
 import type { Trigger } from '../src/core/index.ts'
 
 const run = promisify(execFile)
+const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 /** The `claude` binary, when this machine has one. */
 const CLAUDE = ['/opt/homebrew/bin/claude', '/usr/local/bin/claude', '/usr/bin/claude'].find(path => existsSync(path))
 
@@ -59,7 +62,7 @@ esac
 function request(id: string): Trigger {
   return { id, source: 'feishu', threads: [{ source: 'feishu', id: 'oc_team:om_root' }],
     actor: { source: 'feishu', id: 'ou_alice' }, human: true, addressed: 'mention',
-    text: '@bot fix the failing test', at: new Date().toISOString(),
+    text: `${process.env.SA_E2E_HARNESS ? `[${process.env.SA_E2E_HARNESS}] ` : ''}@bot fix the failing test`, at: new Date().toISOString(),
     meta: { chatId: 'oc_team', messageId: 'om_root', mentioned: true } }
 }
 
@@ -69,7 +72,14 @@ it.skipIf(!CLAUDE)('runs a ticket from the request to the worker\'s report', asy
   directories.push(directory)
   const stateDir = join(directory, 'state')
   const cli = fakeGithub(directory)
-  const host = running = await startStandalone({ stateDir, port: 0, cli: { command: CLAUDE! } })
+  // The route the host itself is configured with, so the test does not depend on the CLI's own default (which on a
+  // gateway machine can be a model nobody serves); SA_TEST_CLI_MODEL overrides it.
+  const table = JSON.parse(readFileSync(join(ROOT, 'harnesses.json'), 'utf8'))
+  const model = process.env.SA_TEST_CLI_MODEL ?? table.router?.model
+  // With a harness named, the ticket runs that CLI instead: the same chain, a different worker.
+  const harness = process.env.SA_E2E_HARNESS
+  const host = running = await startStandalone({ stateDir, port: 0, cli: { command: CLAUDE!, ...model ? { model } : {} },
+    ...harness ? { harnesses: table.harnesses, defaultHarness: harness } : {} })
   const runtime = host.runtime
 
   // The host starts without a repository, and says so.
@@ -107,6 +117,8 @@ it.skipIf(!CLAUDE)('runs a ticket from the request to the worker\'s report', asy
   expect(decision.kind).toBe('accept')
   const ticketId = decision.ticketId!
   expect(ticketId).toBeTruthy()
+  // The ticket kept the harness its request named, which is what the worker turn runs.
+  if (harness) expect(host.runtime.store.tickets.get(ticketId)!.harness).toBe(harness)
 
   // The ticket has a workspace of its own, which the prepare command created.
   const ticket = host.runtime.store.tickets.get(ticketId)!
@@ -131,7 +143,7 @@ it.skipIf(!CLAUDE)('runs a ticket from the request to the worker\'s report', asy
   await vi.waitFor(() => {
     const report = host.runtime.store.tickets.get(ticketId)!.assignments.at(-1)?.report
     expect(report?.summary).toBeTruthy()
-  }, { timeout: 120_000, interval: 1000 })
+  }, { timeout: Number(process.env.SA_TEST_REPORT_TIMEOUT ?? 120_000), interval: 1000 })
   const report = host.runtime.store.tickets.get(ticketId)!.assignments.at(-1)!.report!
   // The worker reported through the engine's tool, so the ticket knows what happened.
   expect(report.state).toBeTruthy()

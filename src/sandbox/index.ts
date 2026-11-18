@@ -65,7 +65,9 @@ export interface SandboxExtras {
 }
 
 /** The policy one agent runs under: its workspace, and nothing of the control plane. */
-export function policyFor(init: { workspace: string; stateDir: string; command: string; extras?: SandboxExtras; home?: string }): SandboxPolicy {
+export function policyFor(init: { workspace: string; stateDir: string; command: string; extras?: SandboxExtras; home?: string
+  /** State directories the CLI itself reads and writes, such as its session store; the sign-in path stays as it was. */
+  cliState?: readonly string[] }): SandboxPolicy {
   const home = init.home ?? homedir()
   const stateDir = real(init.stateDir)
   return {
@@ -76,6 +78,7 @@ export function policyFor(init: { workspace: string; stateDir: string; command: 
     readable: [...installOf(init.command), ...(init.extras?.readable ?? []).map(real)],
     // The CLI keeps its sessions, and the sign-in it was given, in these (on macOS the sign-in is in the keychain); the agent
     // runs as the CLI's user.
-    cliState: [join(home, '.claude'), join(home, '.claude.json'), ...platform() === 'darwin' ? [join(home, 'Library', 'Keychains')] : []].map(real),
+    cliState: [join(home, '.claude'), join(home, '.claude.json'), ...platform() === 'darwin' ? [join(home, 'Library', 'Keychains')] : [],
+      ...(init.cliState ?? [])].map(real),
   }
 }

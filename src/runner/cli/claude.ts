@@ -24,6 +24,12 @@ export interface CliConfig {
   readonly args?: readonly string[]
   /** The model the CLI runs with. */
   readonly model?: string
+  /** The reasoning effort the CLI runs with, for the CLIs that take one. */
+  readonly effort?: string
+  /** Paths the CLI needs to read beyond its own install — its sign-in and session state, for a CLI run through a wrapper. */
+  readonly readable?: readonly string[]
+  /** State directories the CLI writes as it works: its session store, its caches, its own configuration. */
+  readonly state?: readonly string[]
 }
 
 /** The options of the Claude Code runner. */
@@ -38,6 +44,15 @@ export interface ClaudeRunnerOptions {
    * where the sandbox and the ticket scope are what confine it. Adapters in `adapters/` speak this runner's contract.
    */
   readonly workerCli?: CliConfig
+  /**
+   * The CLIs a ticket can name, by harness name.
+   *
+   * A request carries the name (`[codex] fix the flaky test`), the ticket keeps it, and the worker turn runs that entry.
+   * A name the table does not hold runs the default, so a typo costs a ticket its harness rather than its work.
+   */
+  readonly harnesses?: Readonly<Record<string, CliConfig>>
+  /** The entry of `harnesses` a ticket without a name runs. */
+  readonly defaultHarness?: string
   /** How the runner starts a process. */
   readonly subprocess: Subprocess
   /** The logger. */
@@ -103,7 +118,9 @@ export class CliAgent implements AgentHandle {
   /** Aborts the turn that runs, when one does. */
   aborting?: AbortController
 
-  constructor(readonly id: string, readonly role: Role, readonly cwd: string, private readonly runner: ClaudeRunner) {
+  constructor(readonly id: string, readonly role: Role, readonly cwd: string, private readonly runner: ClaudeRunner,
+    /** The CLI this agent runs, when its ticket named one. */
+    readonly harness?: string) {
     this.session = { id, snapshotEvents: () => this.events }
   }
   readonly session: SessionRef
@@ -146,10 +163,22 @@ export class ClaudeRunner implements AgentRunner {
   get(id: string): AgentHandle | undefined { return this.agents.get(id) }
   async resolve(id: string): Promise<AgentHandle | undefined> { return this.agents.get(id) }
   async create(spec: SpecOfAgent): Promise<AgentHandle> {
-    const agent = new CliAgent(spec.id, spec.role, spec.cwd, this)
+    const agent = new CliAgent(spec.id, spec.role, spec.cwd, this, spec.harness)
     this.agents.set(spec.id, agent)
     for (const listener of this.onCreated) await listener(agent)
     return agent
+  }
+  /**
+   * The CLI a worker runs: the harness its ticket named, the default harness, the worker CLI, then the router's.
+   *
+   * A name the table does not hold falls to the default rather than to the worker CLI: a typo in a request costs the
+   * ticket its chosen harness, not the harness table the operator set up.
+   */
+  cliFor(agent: CliAgent): CliConfig {
+    const table = this.options.harnesses
+    const named = agent.harness ? table?.[agent.harness] : undefined
+    const fallback = this.options.defaultHarness ? table?.[this.options.defaultHarness] : undefined
+    return named ?? fallback ?? this.options.workerCli ?? this.options.cli
   }
   async rename(id: string, title: string): Promise<void> {
     const agent = this.agents.get(id)
@@ -262,7 +291,7 @@ export class ClaudeRunner implements AgentRunner {
     const sections = [...agent.sections].sort((a, b) => a.order - b.order)
     const systemPrompt = sections.map(section => section.text({ bound: true })).filter(Boolean).join('\n\n')
     // A worker may run a different CLI from the router: only the router has to prove it has no built-in tools.
-    const cli = agent.role === 'orchestrator' ? this.options.cli : this.options.workerCli ?? this.options.cli
+    const cli = agent.role === 'orchestrator' ? this.options.cli : this.cliFor(agent)
     const spec = {
       command: cli.command,
       args: cli.args ?? [],
@@ -270,6 +299,7 @@ export class ClaudeRunner implements AgentRunner {
       prompt: prompt.content.map(block => block.text ?? '').join('\n'),
       ...agent.sessionId ? { sessionId: agent.sessionId } : {},
       ...agent.model?.model ? { model: agent.model.model } : cli.model ? { model: cli.model } : {},
+      ...cli.effort ? { effort: cli.effort } : {},
       mcpConfig: server ? JSON.stringify({ mcpServers: { superagent: { type: 'http', url: server.url,
         headers: { authorization: `Bearer ${server.token}` } } } }) : '',
       ...systemPrompt ? { systemPrompt } : {},

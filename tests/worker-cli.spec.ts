@@ -54,6 +54,41 @@ describe('router and worker CLIs', () => {
     expect(argv.map(line => line[0])).toEqual(['/only-cli'])
   })
 
+  it('runs the harness the ticket named, and the default for one that named none', async () => {
+    const { subprocess, argv } = recorder()
+    const runner = new ClaudeRunner({ cli: { command: '/router-cli' },
+      harnesses: { antigravity: { command: '/agy', model: 'gemini-4-carbon-high' }, codex: { command: '/codex' } },
+      defaultHarness: 'antigravity', subprocess, logger: { warn: () => {}, error: () => {} } })
+    const named = await runner.create({ id: 'worker-1', cwd: '/tmp', role: 'worker', harness: 'codex' })
+    const unnamed = await runner.create({ id: 'worker-2', cwd: '/tmp', role: 'worker' })
+    await runner.deliver(named as never, message('m1'), 'queue')
+    await runner.deliver(unnamed as never, message('m2'), 'queue')
+    expect(argv.map(line => line[0])).toEqual(['/codex', '/agy'])
+    // The default harness brings its model with it.
+    expect(argv[1]).toContain('gemini-4-carbon-high')
+  })
+
+  it('falls back to the default when a ticket names a harness the table does not hold', async () => {
+    const { subprocess, argv } = recorder()
+    const runner = new ClaudeRunner({ cli: { command: '/router-cli' },
+      harnesses: { antigravity: { command: '/agy' } }, defaultHarness: 'antigravity', subprocess,
+      logger: { warn: () => {}, error: () => {} } })
+    const agent = await runner.create({ id: 'worker-1', cwd: '/tmp', role: 'worker', harness: 'typo' })
+    await runner.deliver(agent as never, message('m1'), 'queue')
+    expect(argv.map(line => line[0])).toEqual(['/agy'])
+  })
+
+  it('passes the effort the harness asks for', async () => {
+    const { subprocess, argv } = recorder()
+    const runner = new ClaudeRunner({ cli: { command: '/router-cli' },
+      harnesses: { hydrogen: { command: '/agy', model: 'gemini-4-hydrogen-xhigh', effort: 'xhigh' } },
+      defaultHarness: 'hydrogen', subprocess, logger: { warn: () => {}, error: () => {} } })
+    const agent = await runner.create({ id: 'worker-1', cwd: '/tmp', role: 'worker' })
+    await runner.deliver(agent as never, message('m1'), 'queue')
+    expect(argv[0]).toContain('--effort')
+    expect(argv[0]).toContain('xhigh')
+  })
+
   it('takes the model from the CLI that runs the turn', async () => {
     const { subprocess, argv } = recorder()
     const runner = new ClaudeRunner({ cli: { command: '/router-cli', model: 'router-model' },

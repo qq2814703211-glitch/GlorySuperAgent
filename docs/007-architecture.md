@@ -304,6 +304,7 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `src/core/part.ts` | `EnginePart`, the base of the Engine's parts, and `EngineOptions` |
 | `src/core/intake.ts` | `Intake`: Triggers from Sources, to their Tickets and, unless a person's message reached one, to Eval |
 | `src/core/evals.ts` | `Evals`: the Evals of Threads and their Decisions |
+| `src/core/harnesses.ts` | The `[name]` / `harness=name` marker in a request: which CLI runs its ticket, and the request without the marker |
 | `src/core/tickets.ts` | `Tickets`: the Ticket lifecycle, the Threads a Ticket follows, Subscriptions and Inputs |
 | `src/core/assignments.ts` | `Assignments`: the Executor's facts and its workers' Reports |
 | `src/core/replies.ts` | `Replies`: the Engine's Channel writes, and `isChinese`, the language a fixed host message follows |
@@ -456,6 +457,8 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `tests/claude-cli.spec.ts` | The real `claude` binary against the engine's MCP server: that it connects, and that the init event reports only the engine's tools |
 | `tests/claude-turn.spec.ts` | The real `claude` binary through the runner: one turn, its events, and the session id that resumes it |
 | `tests/worker-cli.spec.ts` | The router and the worker running different CLIs: which command each turn starts, and the model that comes from it |
+| `tests/harnesses.spec.ts` | The `[name]` / `harness=name` marker: what it names, what it ignores, and the request without it |
+| `tests/harness-sandbox.spec.ts` | One harness under the host's seatbelt profile: that the CLI the operator signed in still reaches its state and its model |
 | `tests/end-to-end.spec.ts` | A ticket through the standalone host and the real CLI: the request, the candidate, the ticket, the worker's own directory, and the worker's report |
 | `tests/tools.spec.ts` | The Sessions' tools: what `orchestrator_read` reads for each role, and the shapes and checks of the other main Session tools |
 | `tests/runtime-concurrency.spec.ts` | Work that overlaps: Triggers during a pass, Tickets that change during deliveries and launches |

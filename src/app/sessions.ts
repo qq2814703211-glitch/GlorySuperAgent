@@ -97,7 +97,10 @@ export class Sessions {
   /** Resolves or creates session `id` in workspace `cwd`, initializes its role model, decorates it with prompts/skills/tools, sets `danger-full-access` permissions, and renames it to `title`. */
   async ensure(id: string, cwd: string, title: string, role: Role): Promise<AgentHandle> {
     const { runner } = this.ports
-    const agent = await runner.resolve(id) ?? await runner.create({ id, cwd, role })
+    // A worker runs the harness its ticket named; a ticket that named none runs the runner's default.
+    const ticketId = role === 'worker' ? ticketOfSession(id) : undefined
+    const harness = ticketId ? this.host.store.tickets.get(ticketId)?.harness : undefined
+    const agent = await runner.resolve(id) ?? await runner.create({ id, cwd, role, ...harness ? { harness } : {} })
     const settings = this.host.store.settings()
     await initializeRoleModel(this.ports, agent, role === 'orchestrator' ? settings.eval.model : settings.executor.model)
     await this.decorate(agent)
