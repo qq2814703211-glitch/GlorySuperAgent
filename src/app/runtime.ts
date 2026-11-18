@@ -159,6 +159,8 @@ export class Runtime implements SourceHost {
             for (const message of pullEndNotices(ended, request, repository)) outbox.send(message)
           }
         } })
+      // A host that restarted with an Eval in flight asks for its candidate again; see `Engine.resumeEvaluations`.
+      engine.resumeEvaluations()
       // Update the `evals` and `intake` health entries on every pass: an Eval that failed as unavailable, and Triggers the rate limit refused.
       const evals = board.claim('evals', { state: 'ready', detail: 'No unavailable Eval in the last hour' })
       const intake = board.claim('intake', { state: 'ready', detail: 'No Trigger was rate limited in the last hour' })

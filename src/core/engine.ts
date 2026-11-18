@@ -83,6 +83,14 @@ export class Engine {
       if (thread.pending.length && !thread.evaluating) this.repo.atomic(() => { this.evals.start(thread.key, policy) })
     }
   }
+  /**
+   * Asks the assessor again for every Eval whose candidate never reached its Session, once at startup: a host that
+   * restarted between starting an Eval and delivering its card would otherwise leave that Thread evaluating forever,
+   * because its deadline counts from delivery and nothing asks a second time.
+   */
+  resumeEvaluations(): void {
+    for (const thread of this.repo.threads.active()) if (thread.evaluating) this.repo.atomic(() => { this.evals.resume(thread) })
+  }
 
   // The main Session
 
