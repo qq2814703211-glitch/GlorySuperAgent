@@ -60,6 +60,19 @@ first repository. Every other GitHub environment value (account, commit email, n
 The ticket workspace already isolates a ticket's files; nothing there changes. A prepare command that needs
 to clone can read `DSH_SUPERAGENT_GITHUB_REPOSITORY`.
 
+The working command on this deployment, which clones the ticket's own repository with the agent account's
+credentials (the host points `GIT_CONFIG_GLOBAL` at a gitconfig whose credential helper is the agent's `gh`
+wrapper) and retries, because a direct connection to GitHub drops a TLS handshake now and then:
+
+```sh
+for attempt in 1 2 3 4 5; do
+  rm -rf "$DSH_SUPERAGENT_NAME"
+  if git clone --depth 1 "https://github.com/$DSH_SUPERAGENT_GITHUB_REPOSITORY.git" "$DSH_SUPERAGENT_NAME"; then exit 0; fi
+  sleep 6
+done
+exit 1
+```
+
 ## 6. Pull requests
 
 `pullEndNotices(ticket, request, repository)` and the "opened by the agent account from this repository"
