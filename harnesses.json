@@ -3,7 +3,7 @@
     "command": "claude",
     "model": "glorycode-ds/deepseek-v4-flash"
   },
-  "default": "antigravity",
+  "default": "codex",
   "harnesses": {
     "antigravity": {
       "command": "/Users/dearglory/.hermes/tools/node-26.12.1-darwin-arm64/bin/node",
