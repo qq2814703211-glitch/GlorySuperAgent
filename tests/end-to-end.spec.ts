@@ -78,9 +78,12 @@ it.skipIf(!CLAUDE)('runs a ticket from the request to the worker\'s report', asy
   // The suite's own route first: it is the one chosen for tool-following, and this test asks the worker to do work.
   const model = process.env.SA_TEST_CLI_MODEL ?? table.tests?.model ?? table.router?.model
   // With a harness named, the ticket runs that CLI instead: the same chain, a different worker.
+  // SA_E2E_DEFAULT runs the table's own default instead, so a change to default harness is covered by a real turn.
   const harness = process.env.SA_E2E_HARNESS
+  const useDefault = process.env.SA_E2E_DEFAULT === '1'
   const host = running = await startStandalone({ stateDir, port: 0, cli: { command: CLAUDE!, ...model ? { model } : {} },
-    ...harness ? { harnesses: table.harnesses, defaultHarness: harness } : {} })
+    ...harness ? { harnesses: table.harnesses, defaultHarness: harness }
+      : useDefault ? { harnesses: table.harnesses, defaultHarness: table.default } : {} })
   const runtime = host.runtime
 
   // The host starts without a repository, and says so.
