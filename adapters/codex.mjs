@@ -12,8 +12,9 @@
  *
  * Environment:
  *   SA_CODEX_BIN       the codex executable (default: codex)
- *   SA_CODEX_SANDBOX   codex's own sandbox mode for the turn (default: workspace-write);
- *                      the host's seatbelt already confines the process, this is the inner one.
+ *   SA_CODEX_SANDBOX   codex's own sandbox mode for the turn (default: danger-full-access);
+ *                      the host's seatbelt is the confinement, and codex's own `workspace-write` sandbox quietly
+ *                      refuses MCP tool calls: the model then reports the engine's tools as unavailable.
  *   SA_CODEX_EXTRA     extra argv for codex, space separated
  */
 import { emitEvent, emitInit, fail, joinPrompt, mcpEndpoint, parseContract, probeTools, run } from './lib/contract.mjs'
@@ -25,7 +26,8 @@ const sessionId = contract.resume ?? contract.sessionId
 
 const args = ['exec', '--json', '--skip-git-repo-check', '--color', 'never', '-C', process.cwd()]
 if (contract.model) args.push('-m', contract.model)
-const sandbox = process.env.SA_CODEX_SANDBOX || 'workspace-write'
+// The outer seatbelt confines this process; an inner `workspace-write` sandbox only adds a way for MCP calls to fail.
+const sandbox = process.env.SA_CODEX_SANDBOX || 'danger-full-access'
 args.push('-s', sandbox)
 if (endpoint) {
   args.push('-c', `mcp_servers.${endpoint.name}.url=${JSON.stringify(endpoint.url)}`)

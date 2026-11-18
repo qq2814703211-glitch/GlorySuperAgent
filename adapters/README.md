@@ -65,8 +65,10 @@ above block.
 ### Per-CLI notes
 
 **Codex** — `--verbose` is dropped, `--system-prompt` is prepended to the prompt (codex has no system-prompt flag), and
-the session id is the `thread.started` event's `thread_id`. `SA_CODEX_SANDBOX` picks codex's inner sandbox
-(default `workspace-write`; the host's seatbelt is the outer one).
+the session id is the `thread.started` event's `thread_id`. `SA_CODEX_SANDBOX` picks codex's inner sandbox, and it
+defaults to `danger-full-access`: codex's own `workspace-write` sandbox **quietly refuses every MCP tool call**, after
+which the model reports the engine's tools as unavailable and the turn ends "successfully" with no report. The host's
+seatbelt is the confinement that matters, and it wraps the whole process.
 
 **DeepSeek Harness** — `dsh` exits **0 even when the turn failed** and reports the failure in the `final` event, so the
 adapter reads the reason kind, not the exit code. It has no MCP wiring yet: the headless profile has no MCP plugin, so an

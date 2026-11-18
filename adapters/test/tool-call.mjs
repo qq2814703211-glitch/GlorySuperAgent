@@ -7,34 +7,43 @@
  *   node adapters/test/tool-call.mjs antigravity
  */
 import { spawn } from 'node:child_process'
-import { createServer } from 'node:http'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { Server } from '@modelcontextprotocol/sdk/server/index.js'
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
+import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js'
+import { createServer } from 'node:http'
 
 const root = dirname(dirname(dirname(fileURLToPath(import.meta.url))))
 const harness = process.argv[2] ?? 'antigravity'
 const TOKEN = 'probe-token'
 
-/** The stand-in engine server: one tool, and a record of every call it received. */
+/**
+ * The stand-in engine server: one tool, and a record of every call it received.
+ *
+ * It is built on the SDK the engine itself uses. A hand-rolled server that answers notifications with a result makes a
+ * real MCP client quit (Codex: `Deserialize error ... when send initialized notification`), which reads as "the model
+ * did not call the tool" when the connection never existed.
+ */
 const calls = []
-const server = createServer((req, res) => {
+const server = createServer(async (req, res) => {
   let body = ''
-  req.on('data', chunk => { body += chunk })
-  req.on('end', () => {
-    const parsed = body ? JSON.parse(body) : undefined
-    const method = parsed?.method
-    let result
-    if (method === 'initialize') result = { protocolVersion: '2025-06-18', capabilities: { tools: {} },
-      serverInfo: { name: 'superagent', version: '1.0.0' } }
-    else if (method === 'tools/list') result = { tools: [{ name: 'orchestrator_report', description: 'Report the outcome of the ticket',
-      inputSchema: { type: 'object', properties: { state: { type: 'string' }, summary: { type: 'string' } }, required: ['state', 'summary'] } }] }
-    else if (method === 'tools/call') {
-      calls.push(parsed.params)
-      result = { content: [{ type: 'text', text: 'recorded' }] }
-    }
-    res.writeHead(200, { 'content-type': 'application/json', ...parsed?.method === 'initialize' ? {} : {} })
-    res.end(JSON.stringify({ jsonrpc: '2.0', id: parsed?.id, result }))
+  for await (const chunk of req) body += chunk
+  let parsed
+  try { parsed = body ? JSON.parse(body) : undefined } catch { parsed = undefined }
+  const mcp = new Server({ name: 'superagent', version: '1.0.0' }, { capabilities: { tools: {} } })
+  mcp.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: [{ name: 'orchestrator_report',
+    description: 'Report the outcome of the ticket', inputSchema: { type: 'object',
+      properties: { state: { type: 'string' }, summary: { type: 'string' } }, required: ['state', 'summary'] } }] }))
+  mcp.setRequestHandler(CallToolRequestSchema, async request => {
+    calls.push(request.params)
+    return { content: [{ type: 'text', text: 'recorded' }] }
   })
+  const transport = new StreamableHTTPServerTransport({})
+  await mcp.connect(transport)
+  Object.assign(req, { body: parsed })
+  try { await transport.handleRequest(req, res, parsed) } catch { if (!res.headersSent) { res.writeHead(500); res.end() } else res.end() }
+  finally { await mcp.close().catch(() => {}) }
 })
 await new Promise(resolve => { server.listen(0, '127.0.0.1', resolve) })
 const url = `http://127.0.0.1:${server.address().port}/mcp`
