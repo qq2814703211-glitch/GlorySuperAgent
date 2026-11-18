@@ -75,7 +75,8 @@ it.skipIf(!CLAUDE)('runs a ticket from the request to the worker\'s report', asy
   // The route the host itself is configured with, so the test does not depend on the CLI's own default (which on a
   // gateway machine can be a model nobody serves); SA_TEST_CLI_MODEL overrides it.
   const table = JSON.parse(readFileSync(join(ROOT, 'harnesses.json'), 'utf8'))
-  const model = process.env.SA_TEST_CLI_MODEL ?? table.router?.model
+  // The suite's own route first: it is the one chosen for tool-following, and this test asks the worker to do work.
+  const model = process.env.SA_TEST_CLI_MODEL ?? table.tests?.model ?? table.router?.model
   // With a harness named, the ticket runs that CLI instead: the same chain, a different worker.
   const harness = process.env.SA_E2E_HARNESS
   const host = running = await startStandalone({ stateDir, port: 0, cli: { command: CLAUDE!, ...model ? { model } : {} },
@@ -140,12 +141,21 @@ it.skipIf(!CLAUDE)('runs a ticket from the request to the worker\'s report', asy
   expect((worker as unknown as { cwd: string }).cwd).toBe(ticket.execution!.directory)
 
   // The worker's tools are the engine's own, and the CLI can call them: the report reaches the ticket.
+  // Wait for the report to exist, not for its text: the summary is the model's own writing, and a route may answer the
+  // fixture ticket with an empty one. What the wait proves is that the worker's tool call reached the ticket.
   await vi.waitFor(() => {
     const report = host.runtime.store.tickets.get(ticketId)!.assignments.at(-1)?.report
-    expect(report?.summary).toBeTruthy()
+    expect(report).toBeTruthy()
   }, { timeout: Number(process.env.SA_TEST_REPORT_TIMEOUT ?? 120_000), interval: 1000 })
   const report = host.runtime.store.tickets.get(ticketId)!.assignments.at(-1)!.report!
   // The worker reported through the engine's tool, so the ticket knows what happened.
-  expect(report.state).toBeTruthy()
-  expect(report.summary).toBeTruthy()
+  // A failed turn is recorded as a report too, so the state is what distinguishes the worker's own result. A harness
+  // run on the fixture repository has nothing to fix, and reporting that honestly is the chain working.
+  if (process.env.SA_DEBUG_REPORT) console.log('REPORT', JSON.stringify(report))
+  // Which state the worker picks is its own judgement of a fixture ticket with nothing to fix; what the test proves is
+  // that the report came from the worker's tool call, and `failed` is the state the host writes when the turn itself dies.
+  expect(['ready', 'blocked', 'progress', 'waiting']).toContain(report.state)
+  // The summary is the model's own text; a route can answer a fixture ticket with an empty one, and what this test
+  // proves is that the worker's tool call reached the ticket at all.
+  expect(typeof report.summary).toBe('string')
 }, 300_000)

@@ -59,5 +59,11 @@ const { code, stderr } = await run(process.env.SA_CODEX_BIN || 'codex', args, { 
   emitEvent(`codex/${type}`, { data: parsed })
 })
 
+// Opt-in: a turn the host starts has no terminal, so SA_ADAPTER_LOG names a file that records how it ended.
+if (process.env.SA_ADAPTER_LOG) {
+  const { appendFileSync } = await import('node:fs')
+  appendFileSync(process.env.SA_ADAPTER_LOG,
+    `${new Date().toISOString()} codex exit=${code} failure=${reportedFailure ?? 'none'} stderr=${(stderr ?? '').slice(-600).replaceAll('\n', ' | ')}\n`)
+}
 if (code !== 0) fail(stderr || reportedFailure || `codex ended with ${code}`)
 if (reportedFailure) fail(reportedFailure)

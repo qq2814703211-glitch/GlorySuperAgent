@@ -96,10 +96,20 @@ export function standalonePorts(cli?: CliConfig, confinement?: { stateDir: strin
     ? (workspace: string, argv: readonly string[]) => {
         // The worker's CLI may not be the router's, so the policy reads the command the turn actually runs.
         const command = String(argv[0] ?? cli.command)
-        const entry = everyCli.find(candidate => candidate.command === command)
+        // Several harnesses can share one interpreter (`node adapters/agy.mjs` and `node adapters/codex.mjs`), so the
+        // entry is matched on the whole command prefix, not on the executable alone.
+        const entry = everyCli.find(candidate => [candidate.command, ...candidate.args ?? []]
+          .every((part, index) => argv[index] === part))
         const readable = [...confinement.extras?.readable ?? [], ...entry?.readable ?? []]
-        return sandbox.wrap(argv, policyFor({ workspace, stateDir: confinement.stateDir, command,
+        const wrapped = sandbox.wrap(argv, policyFor({ workspace, stateDir: confinement.stateDir, command,
           extras: { ...confinement.extras, readable }, ...entry?.state ? { cliState: entry.state } : {} })).argv
+        // Opt-in: a sandbox miss is invisible from inside the turn, so the profile and the match can be recorded.
+        if (process.env.SA_PROFILE_LOG) {
+          const profile = wrapped[wrapped.indexOf('-p') + 1]
+          void import('node:fs').then(({ appendFileSync }) => appendFileSync(process.env.SA_PROFILE_LOG!,
+            `command=${command} entry=${entry ? 'matched' : 'MISSING'} readable=${readable.length}\n${profile}\n---\n`))
+        }
+        return wrapped
       }
     : undefined
   const runner = new ClaudeRunner({ cli, ...workerCli ? { workerCli } : {}, ...harnesses ? { harnesses } : {},

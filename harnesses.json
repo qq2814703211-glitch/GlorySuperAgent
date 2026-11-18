@@ -11,7 +11,8 @@
       "readable": [
         "/Users/dearglory/.gemini",
         "/Users/dearglory/Global-repos/super-agent-2/adapters",
-        "/Users/dearglory/.local/bin"
+        "/Users/dearglory/.local/bin",
+        "/Users/dearglory/Global-repos/super-agent-2"
       ],
       "state": [
         "/Users/dearglory/.gemini"
@@ -26,7 +27,8 @@
       "readable": [
         "/Users/dearglory/.gemini",
         "/Users/dearglory/Global-repos/super-agent-2/adapters",
-        "/Users/dearglory/.local/bin"
+        "/Users/dearglory/.local/bin",
+        "/Users/dearglory/Global-repos/super-agent-2"
       ],
       "state": [
         "/Users/dearglory/.gemini"
@@ -48,8 +50,8 @@
       ],
       "readable": [
         "/Users/dearglory/.codex",
-        "/Users/dearglory/.hermes/tools/node-26.12.1-darwin-arm64/lib/node_modules/@openai/codex",
-        "/Users/dearglory/Global-repos/super-agent-2/adapters"
+        "/Users/dearglory/.hermes/tools/node-26.12.1-darwin-arm64",
+        "/Users/dearglory/Global-repos/super-agent-2"
       ],
       "state": [
         "/Users/dearglory/.codex"
@@ -62,8 +64,9 @@
       ],
       "readable": [
         "/Users/dearglory/.dsh",
+        "/Users/dearglory/.hermes/tools/node-26.12.1-darwin-arm64",
         "/Applications/DeepSeek Harness.app",
-        "/Users/dearglory/Global-repos/super-agent-2/adapters"
+        "/Users/dearglory/Global-repos/super-agent-2"
       ],
       "state": [
         "/Users/dearglory/.dsh"
