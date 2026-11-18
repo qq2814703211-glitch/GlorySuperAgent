@@ -251,8 +251,25 @@ export class Tickets extends EnginePart {
     this.repo.tickets.save(ticket)
     if (!liveTicket(ticket) || held) return
     const running = runningAssignment(ticket), latest = latestAssignment(ticket)
-    if (running) this.options.executor.deliver(ticket, running)
+    // A person's message on a worker that reported failure starts a new Assignment, as the panel's Retry does:
+    // delivering it to the session that already gave up leaves the person unanswered, with nothing to wake.
+    if (running) {
+      if (running.report?.state === 'failed' && !automatic(input)) {
+        // Replace it the way `retry` does, without its `canRetry` gate: the person's message is the retry.
+        this.endAssignment(ticket, running, 'failed')
+        this.requeueUntaken(ticket, running)
+        const assignment = this.newAssignment(ticket)
+        ticket.updatedAt = this.now()
+        this.repo.tickets.save(ticket)
+        this.options.executor.stop(ticket, running, 'failed')
+        this.options.executor.start(ticket, assignment)
+      }
+      else this.options.executor.deliver(ticket, running)
+    }
     else if (latest?.state === 'pending' && !waitsForPerson(ticket)) this.options.executor.start(ticket, latest)
+    // The same, once that failed Assignment has ended: the ticket is still open, and no retry is going to be pressed.
+    else if (latest?.state === 'ended' && latest.report?.state === 'failed' && !automatic(input))
+      this.options.executor.start(ticket, this.newAssignment(ticket))
   }
   /**
    * Resume an ended ticket under its unchanged Mandate when a person's message on one of its Threads waits for it: no Eval
