@@ -36,6 +36,10 @@ export class Evals extends EnginePart {
   due(thread: Thread, policy: Policy): void {
     const evaluation = thread.evaluating
     if (!evaluation || (policy.paused && evaluation.pausedAt)) return
+    // A candidate that never reached the assessor's Session - the host restarted before its effect ran, or the delivery
+    // failed - is requested again: the request is keyed by the Eval and the delivery by its request id, so asking twice
+    // delivers once. Without this a restart leaves the Thread evaluating forever, and its Triggers never decided.
+    if (!evaluation.delivered) { this.options.assessor.request(this.candidateOf(thread)); return }
     const now = this.now()
     if (policy.paused) evaluation.pausedAt = now
     else if (evaluation.pausedAt) {
