@@ -161,4 +161,4 @@ it.skipIf(!CLAUDE)('runs a ticket from the request to the worker\'s report', asy
   // The summary is the model's own text; a route can answer a fixture ticket with an empty one, and what this test
   // proves is that the worker's tool call reached the ticket at all.
   expect(typeof report.summary).toBe('string')
-}, 300_000)
+}, 540_000)

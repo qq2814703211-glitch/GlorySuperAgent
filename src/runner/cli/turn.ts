@@ -58,11 +58,11 @@ export const ROUTER_TOOLS = 'The CLI reported a tool that is not the engine\'s, 
 export function turnArgs(spec: TurnSpec): string[] {
   const args = ['-p', spec.prompt, '--output-format', 'stream-json', '--verbose']
   if (spec.noBuiltins) args.push('--tools', '')
-  // Every tool the router may use lives on the engine's own MCP server, and a non-interactive CLI refuses an MCP tool
-  // it was not told to allow ("you haven't granted it yet"). Naming the server approves its tools; the built-ins are
-  // already gone, so this cannot widen what the router may do.
-  if (spec.noBuiltins) args.push('--allowedTools', 'mcp__superagent')
   if (spec.strictMcp) args.push('--strict-mcp-config')
+  // A non-interactive CLI refuses every MCP tool it was not told to allow ("you haven't granted it yet"), which the
+  // router and a CLI worker both hit. Name the engine's server: it serves each role only its own tools, and the
+  // router's built-ins are already gone, so this cannot widen what either may do.
+  if (spec.mcpConfig) args.push('--allowedTools', 'mcp__superagent')
   if (spec.noCommands) args.push('--disable-slash-commands')
   if (spec.mcpConfig) args.push('--mcp-config', spec.mcpConfig)
   // The engine's prompt replaces the CLI's own, so the agent runs under the engine's instructions only.

@@ -21,7 +21,7 @@ const CLAUDE = ['/opt/homebrew/bin/claude', '/usr/local/bin/claude', '/usr/bin/c
 async function signedIn(): Promise<boolean> {
   if (!CLAUDE) return false
   const { stdout } = await run(CLAUDE, ['-p', 'Reply with the word ok.', '--output-format', 'stream-json'], {
-    cwd: process.env.TMPDIR ?? '/tmp', timeout: 120_000, encoding: 'utf8',
+    cwd: process.env.TMPDIR ?? '/tmp', timeout: 300_000, encoding: 'utf8',
   }).catch((error: { stdout?: string }) => ({ stdout: error.stdout ?? '' }))
   return !stdout.includes('authentication_failed')
 }
@@ -58,7 +58,7 @@ it.skipIf(!CLAUDE)('runs one turn of the CLI and ends it when the process ends',
   expect(events.length).toBeGreaterThan(0)
   // The session id the CLI reported is kept, so a follow-up turn resumes it.
   expect((agent as unknown as { sessionId?: string }).sessionId).toBeTruthy()
-}, 180_000)
+}, 400_000)
 
 it.skipIf(!CLAUDE)('refuses a router whose CLI reported a tool of its own', async () => {
   if (!await signedIn()) return
@@ -72,4 +72,4 @@ it.skipIf(!CLAUDE)('refuses a router whose CLI reported a tool of its own', asyn
     source: { kind: 'dsh-superagent' } } as never, 'queue')
   // The router runs with no built-in tools, so the CLI reports only ours and the turn is not refused.
   expect(errors).toEqual([])
-}, 180_000)
+}, 400_000)
