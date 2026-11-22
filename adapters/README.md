@@ -28,6 +28,29 @@ So they are wired as **workers only**, through `--worker-cli`, which this fork a
 
 ## The three adapters
 
+### Experimental Hermes router
+
+The standalone launcher accepts an inline `router` entry or the name of an entry in `routers`. For example, an operator's harness file can contain:
+
+```json
+{
+  "router": "hermes",
+  "routers": {
+    "claude": { "command": "claude" },
+    "hermes": {
+      "command": "/opt/node/bin/node",
+      "args": ["/opt/superagent/adapters/hermes.mjs", "--router-state", "/var/lib/hermes-router", "--context", "/opt/router-notes/MEMORY.md"],
+      "readable": ["/opt/superagent", "/opt/router-notes/MEMORY.md", "/opt/hermes"],
+      "state": ["/var/lib/hermes-router"]
+    }
+  }
+}
+```
+
+Set installation paths for the local host and retain the worker entries and default. `--context` can be repeated for operator-selected knowledge files whose contents may be sent to the configured model. Use a private router state directory. Each new session creates its own Hermes home there. Provider credentials come from the launch environment. `--hermes-bin`, `--provider` and `--base-url` may be supplied in the entry's arguments. `model` and `effort` are passed to Hermes chat.
+
+The adapter checks the CLI's tool listing before passing the prompt. A missing inventory or one that differs from the authenticated engine listing aborts the turn. The v0.23.3 client generates this listing outside the gateway session. The gateway's effective tool set, resume after credential rotation, and a real router decision still need validation before deployment. Run `node --test adapters/test/hermes.test.mjs` for the adapter checks.
+
 | Adapter | CLI it drives | MCP to the engine tools | Session resume | State |
 | --- | --- | --- | --- | --- |
 | `codex.mjs` | `codex exec --json` | yes — `-c mcp_servers.<name>.url` + `http_headers` | `codex exec resume <id>` | flags translated and exercised; the signed-in route answers |
