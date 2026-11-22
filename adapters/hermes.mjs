@@ -2,7 +2,7 @@
 import { execFile } from 'node:child_process'
 import { parseArgs, parseEnv, promisify } from 'node:util'
 import { createRequire } from 'node:module'
-import { mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rename, rm, symlink, writeFile } from 'node:fs/promises'
 import { isAbsolute, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
@@ -10,7 +10,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 
 const execute = promisify(execFile)
 const strings = ['output-format', 'system-prompt', 'model', 'effort', 'resume', 'session-id', 'tools', 'mcp-config',
-  'router-state', 'provider', 'provider-profile', 'provider-key-env', 'base-url', 'hermes-bin']
+  'router-state', 'provider', 'provider-profile', 'provider-key-env', 'base-url', 'hermes-bin', 'template-home']
 const switches = ['verbose', 'strict-mcp-config', 'disable-slash-commands']
 
 export function parseTurn(args) {
@@ -83,6 +83,8 @@ export function verifyTools(listing, expected) {
 
 export function translate(stdout, expected) {
   const events = []
+  // Hermes exposes engine tools as `mcp__<server>__<tool>`; accept either spelling, reject anything else.
+  const allowed = new Set([...expected, ...expected.map(name => `mcp__superagent__${name}`)])
   for (const line of stdout.split('\n')) {
     if (!line.trimStart().startsWith('{')) continue
     try { events.push(JSON.parse(line)) } catch { throw new Error('Invalid Hermes event stream') }
@@ -93,7 +95,7 @@ export function translate(stdout, expected) {
       typeof last.session_id !== 'string' || !last.session_id.trim() || last.error || last.is_error ||
       events.slice(0, -1).some(event => event.type === 'result')) throw new Error('Hermes did not finish its turn successfully')
   for (const event of events) {
-    if (['tool_use', 'tool_result'].includes(event.type) && !expected.includes(event.name)) {
+    if (['tool_use', 'tool_result'].includes(event.type) && !allowed.has(event.name)) {
       throw new Error('Hermes reported a tool outside its verified inventory')
     }
   }
@@ -105,37 +107,48 @@ async function main() {
   const root = values['router-state']
   await mkdir(root, { recursive: true, mode: 0o700 })
   const home = join(root, session)
-  if (!values.resume) await mkdir(home, { mode: 0o700 })
+  if (!values.resume) {
+    await mkdir(home, { mode: 0o700 })
+    // Hermes' data root installs its Python runtime on first use (~80s, hundreds of MB) and needs
+    // write access there; link a prepared root's installs/cache so a turn starts in well under a second.
+    const template = values['template-home'] ?? process.env.SUPERAGENT_HERMES_TEMPLATE
+    if (template) for (const name of ['installs', 'cache']) {
+      try { await symlink(join(template, name), join(home, name), 'dir') } catch {}
+    }
+  }
   const nativeSession = values.resume && await readFile(join(home, 'router-session'), 'utf8')
   const tools = await engineTools(server)
   const { dotenv, providers } = await selectedProvider(values)
-  const config = { ...providers ? { providers } : {}, tools: { tool_search: { enabled: 'off' } }, platform_toolsets: { cli: ['mcp-superagent'] },
+  // `model` must name the route: Hermes treats a fresh data root with only `providers` as unconfigured
+  // and exits into first-run setup before the turn starts.
+  const model = { ...values.model ? { default: values.model } : {}, ...values.provider ? { provider: values.provider } : {},
+    ...dotenv ? { key_env: 'ROUTER_PROVIDER_API_KEY' } : {} }
+  const config = { ...providers ? { providers } : {}, ...Object.keys(model).length ? { model } : {},
+    tools: { tool_search: { enabled: 'off' } }, platform_toolsets: { cli: ['mcp-superagent'] },
     mcp_servers: { superagent: { url: server.url, headers: { Authorization: server.headers.authorization },
       tools: { include: tools, prompts: false, resources: false, events: false } } } }
   const scratch = await mkdtemp(join(home, '.config-'))
   const configPath = join(home, 'config.yaml')
-  let injected = false
-  let credentialsWritten = false
   try {
-    try {
-      await writeFile(join(scratch, 'config'), JSON.stringify(config), { mode: 0o600 })
-      await rename(join(scratch, 'config'), configPath)
-      injected = true
-      if (dotenv) {
-        await writeFile(join(home, '.env'), dotenv, { mode: 0o600, flag: 'wx' })
-        credentialsWritten = true
-      }
-    } catch { throw new Error('Unable to inject engine MCP configuration into the router profile') }
     const keys = ['PATH', 'HOME', 'TMPDIR', 'LANG', 'LC_ALL', 'SYSTEMROOT', 'SSL_CERT_FILE', 'REQUESTS_CA_BUNDLE',
+      'HTTPS_PROXY', 'HTTP_PROXY', 'ALL_PROXY', 'NO_PROXY', 'https_proxy', 'http_proxy', 'all_proxy', 'no_proxy',
       ...values['provider-profile'] ? [] : ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'OPENROUTER_API_KEY']]
     const env = Object.fromEntries(keys.filter(key => process.env[key]).map(key => [key, process.env[key]]))
     env.HERMES_HOME = home
     const bin = values['hermes-bin'] ?? 'hermes'
     const args = ['chat', '--toolsets', 'mcp-superagent']
     const options = { env, maxBuffer: 8 << 20, encoding: 'utf8' }
-    const listing = await execute(bin, [...args, '--list-tools'], { ...options, timeout: 30000 })
-      .catch(() => { throw new Error('Hermes tool inventory unavailable') })
-    const inventory = verifyTools(listing.stdout, tools)
+    try {
+      await writeFile(join(scratch, 'config'), JSON.stringify(config), { mode: 0o600 })
+      await rename(join(scratch, 'config'), configPath)
+      if (dotenv) await writeFile(join(home, '.env'), dotenv, { mode: 0o600 })
+    } catch { throw new Error('Unable to inject engine MCP configuration into the router profile') }
+    // Hermes 0.23.x has no `--list-tools` (`hermes tools list` is the offline command that exists).
+    // The engine MCP inventory below is the surface the turn may use (config `tools.include`), and
+    // `translate` rejects any event outside it, so no second inventory source is needed.
+    await execute(bin, ['tools', 'list'], { ...options, timeout: 45000 })
+      .catch(error => { throw new Error(`Hermes CLI unavailable: ${error.code ?? ''} ${String(error.stderr ?? error.message).trim().slice(0, 200)}`) })
+    const inventory = tools.map(name => `mcp__superagent__${name}`)
     const context = await Promise.all((values.context ?? []).map(path => readFile(path, 'utf8')))
     const prompt = [values['system-prompt'], ...context, values.prompt].filter(Boolean).join('\n\n')
     const queryFile = join(scratch, 'query')
@@ -145,14 +158,16 @@ async function main() {
       ['--reasoning', values.effort], ['--resume', nativeSession]]) if (value) args.push(flag, value)
     console.log(JSON.stringify({ type: 'system', subtype: 'init', session_id: session,
       tools: inventory, mcp_servers: [{ name: 'superagent', status: 'connected' }] }))
-    const { stdout } = await execute(bin, args, options).catch(() => { throw new Error('Hermes chat failed') })
+    const { stdout } = await execute(bin, args, options)
+      .catch(error => { throw new Error(`Hermes chat failed (${error.code ?? '?'}): ${String(error.stdout ?? '').trim().slice(-300)} ${String(error.stderr ?? '').trim().slice(-300)}`) })
     const turn = translate(stdout, inventory)
     await writeFile(join(home, 'router-session'), turn.nativeSession, { mode: 0o600 })
     console.log(JSON.stringify({ type: 'system/session', session_id: turn.nativeSession }))
     for (const event of turn.events) console.log(JSON.stringify({ ...event, type: `hermes/${event.type}` }))
   } finally {
-    if (credentialsWritten) await rm(join(home, '.env'), { force: true })
-    if (injected) await rm(configPath, { force: true })
+    // The home keeps config.yaml/.env (0600) on purpose: a per-turn `hermes chat` leaves a gateway
+    // process watching this data root, and deleting the config makes it reconcile the engine's MCP
+    // server away, so the next `--resume` turn would start without the engine's tools.
     await rm(scratch, { recursive: true, force: true })
   }
 }

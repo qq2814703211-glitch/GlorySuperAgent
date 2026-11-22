@@ -89,8 +89,8 @@ assert.equal(config.providers.chosen.base_url, 'https://provider.invalid/v1');
 assert.equal(fs.readFileSync(path.join(home, '.env'), 'utf8'), 'ROUTER_PROVIDER_API_KEY=test-only-value\\n');
 assert.equal(process.env.OPENAI_API_KEY, undefined);
 const args = process.argv.slice(2), resume = args.includes('--resume');
-assert.equal(args[args.indexOf('--toolsets')+1], 'mcp-superagent');
-if (args.includes('--list-tools')) { console.log('    * mcp__superagent__route - route'); process.exit(0) }
+if (args[0] === 'tools' && args[1] === 'list') process.exit(0);
+assert.equal(args[args.indexOf('--toolsets')+1], 'mcp-superagent')
 assert.ok(!args.includes('A private test context.'));
 assert.equal(fs.readFileSync(args[args.indexOf('--query-file')+1], 'utf8'), 'A private test context.\\n\\nhello');
 assert.equal(config.mcp_servers.superagent.headers.Authorization, resume ? 'Bearer rotated' : 'Bearer dummy');
@@ -111,7 +111,7 @@ console.log(JSON.stringify({type:'result',session_id:'local-real-id',exit_code:0
       assert.deepEqual(events[0].tools, ['mcp__superagent__route'])
       assert.equal(events[0].session_id, 'host-id')
       assert.deepEqual(events[1], { type: 'system/session', session_id: 'local-real-id' })
-      assert.deepEqual(await readdir(join(root, 'host-id')), ['router-session'])
+      assert.deepEqual((await readdir(join(root, 'host-id'))).sort(), ['.env', 'config.yaml', 'router-session'])
       assert.equal(await readFile(join(root, 'host-id', 'router-session'), 'utf8'), 'local-real-id')
       assert.doesNotMatch(stdout, /Bearer|test-only-value|private test context/)
     }
