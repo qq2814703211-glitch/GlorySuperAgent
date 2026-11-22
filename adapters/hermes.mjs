@@ -135,6 +135,10 @@ async function main() {
       ...values['provider-profile'] ? [] : ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'OPENROUTER_API_KEY']]
     const env = Object.fromEntries(keys.filter(key => process.env[key]).map(key => [key, process.env[key]]))
     env.HERMES_HOME = home
+    // The updater's fence (`.hermes-update-in-progress`, held for the whole update) parks every
+    // gateway on this install as `Gateway draining: update_paused`; a router turn is not a place to
+    // start an update, so the check stays off, exactly as the repo's own eval harness does.
+    env.HERMES_SKIP_UPDATE_CHECK = '1'
     const bin = values['hermes-bin'] ?? 'hermes'
     const args = ['chat', '--toolsets', 'mcp-superagent']
     const options = { env, maxBuffer: 8 << 20, encoding: 'utf8' }
