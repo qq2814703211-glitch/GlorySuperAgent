@@ -20,7 +20,7 @@ async function start(): Promise<{ host: Standalone; base: string; port: number }
   directories.push(root)
   const panel = join(root, 'panel')
   mkdirSync(join(panel, 'assets'), { recursive: true })
-  writeFileSync(join(panel, 'index.html'), '<!doctype html><html><head><title>Superagent</title></head><body><div id="root"></div></body></html>')
+  writeFileSync(join(panel, 'index.html'), '<!doctype html><html><head><title>GlorySuperAgent</title></head><body><div id="root"></div></body></html>')
   writeFileSync(join(panel, 'assets', 'app.js'), 'console.log(1)')
   writeFileSync(join(root, 'secret.txt'), 'OUTSIDE')
   const host = running = await startStandalone({ stateDir: join(root, 'state'), port: 0, panelDirectory: panel })

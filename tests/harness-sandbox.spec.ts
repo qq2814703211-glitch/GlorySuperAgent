@@ -9,7 +9,7 @@
  * The turn costs a model call, so it runs only when asked: `SA_HARNESS_PROBE=antigravity pnpm vitest run tests/harness-sandbox.spec.ts`
  */
 import { execFile } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { promisify } from 'node:util'
@@ -17,11 +17,12 @@ import { fileURLToPath } from 'node:url'
 import { expect, it } from 'vitest'
 import { policyFor } from '../src/sandbox/index.ts'
 import { seatbeltProfile } from '../src/sandbox/seatbelt.ts'
+import { readHarnessTable } from '../src/host/harness-table.ts'
 
 const run = promisify(execFile)
 const root = dirname(dirname(fileURLToPath(import.meta.url)))
 const harness = process.env.SA_HARNESS_PROBE
-const table = harness ? JSON.parse(readFileSync(join(root, 'harnesses.json'), 'utf8')) : undefined
+const table = harness ? readHarnessTable(join(root, 'harnesses.json')) : undefined
 const entry = harness ? table?.harnesses?.[harness] : undefined
 const sandbox = existsSync('/usr/bin/sandbox-exec')
 
@@ -32,7 +33,7 @@ it.skipIf(!harness || !entry || !sandbox)(`runs the ${harness} harness inside th
   mkdirSync(workspace, { recursive: true })
   const policy = policyFor({ workspace, stateDir, command: entry.command, extras: { readable: entry.readable ?? [] },
     ...entry.state ? { cliState: entry.state } : {} })
-  const argv = ['/usr/bin/sandbox-exec', '-p', seatbeltProfile(policy), entry.command, ...(entry.args ?? []),
+  const argv: [string, ...string[]] = ['/usr/bin/sandbox-exec', '-p', seatbeltProfile(policy), entry.command, ...(entry.args ?? []),
     ...(harness === 'claude' ? ['-p', 'Reply with exactly: SANDBOX_OK', '--output-format', 'json']
       : harness.startsWith('antigravity') ? ['-p', 'Reply with exactly: SANDBOX_OK', '--output-format', 'json',
         ...(entry.model ? ['--model', entry.model] : [])]

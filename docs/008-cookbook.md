@@ -1,6 +1,6 @@
 # 008 Cookbook
 
-This cookbook shows how to extend dsh-superagent. It uses the terms in [001 Domain model](001-domain.md) and [002 Authorization](002-authorization.md), and the components in [007 Architecture](007-architecture.md).
+This cookbook shows how to extend GlorySuperAgent. It uses the terms in [001 Domain model](001-domain.md) and [002 Authorization](002-authorization.md), and the components in [007 Architecture](007-architecture.md).
 
 ## Add a Source
 
@@ -272,7 +272,7 @@ The plugin injects `orchestrator`. Its first effect registers the kind and unreg
 ```ts
 async function watch(ctx: SourceContext, signal: AbortSignal): Promise<void> {
   await ctx.ready
-  // Setup restarts dsh-superagent once it resolves the accounts; until then the Source reads nothing.
+  // Setup restarts GlorySuperAgent once it resolves the accounts; until then the Source reads nothing.
   if (!ctx.configured()) { ctx.report('webhook', health('paused', 'setupPending')); return }
   let failures = 0
   while (!signal.aborted) {
@@ -344,7 +344,7 @@ Then export the built file in `package.json` by adding `"./webhook-watch": "./li
 
 ```yaml
     - id: dsh-superagent-webhook
-      name: dsh-superagent/webhook-watch
+      name: glorysuperagent/webhook-watch
       disabled: true
 ```
 

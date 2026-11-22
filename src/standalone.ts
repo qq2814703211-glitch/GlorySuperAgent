@@ -88,8 +88,8 @@ export function standalonePorts(cli?: CliConfig, confinement?: { stateDir: strin
   // Agents read text from strangers and run code they did not write, so the operating system confines them. A host that
   // cannot confine them refuses to start rather than run them as the operator.
   const sandbox = chooseSandbox(confinement?.mode)
-  if (sandbox) logger.info('superagent: agents run in the %s sandbox', sandbox.name)
-  else logger.warn('superagent: the sandbox is off; agents run as your own user and can read and change anything you can')
+  if (sandbox) logger.info('GlorySuperAgent: agents run in the %s sandbox', sandbox.name)
+  else logger.warn('GlorySuperAgent: the sandbox is off; agents run as your own user and can read and change anything you can')
   // Every CLI an agent may run, so the sandbox can name the paths that CLI needs beyond its own install.
   const everyCli = [cli, ...workerCli ? [workerCli] : [], ...Object.values(harnesses ?? {})]
   const confine = sandbox && confinement
@@ -179,3 +179,4 @@ export async function startStandalone(options: StandaloneOptions = {}): Promise<
 
 export type { DeploymentConfig }
 export { machineOf }
+export { readHarnessTable } from './host/harness-table.ts'

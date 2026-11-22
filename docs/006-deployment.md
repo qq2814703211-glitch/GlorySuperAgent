@@ -1,6 +1,6 @@
 # 006 Deployment
 
-Use this guide to install, configure and operate dsh-superagent. It covers accounts, startup checks, upgrades and troubleshooting, building on [001 Domain model](001-domain.md) through [005 Panel](005-panel.md).
+Use this guide to install, configure and operate GlorySuperAgent. It covers accounts, startup checks, upgrades and troubleshooting, building on [001 Domain model](001-domain.md) through [005 Panel](005-panel.md).
 
 ## What runs
 
@@ -24,7 +24,7 @@ Plugin configuration holds the state directory and machine limits. Use the panel
 
 The bundle defines `dsh-superagent-worker` for Executors and `dsh-superagent-router` for the main Session. They appear in the DeepSeek Harness preset list but are intended only for dsh-superagent. Do not select them for personal Sessions or disable their configuration rows. The application needs them to create and resume its Sessions.
 
-Opening a blank managed Session in the Web UI can select the profile's default preset. dsh-superagent restores its role-specific preset before the first turn.
+Opening a blank managed Session in the Web UI can select the profile's default preset. GlorySuperAgent restores its role-specific preset before the first turn.
 
 Both presets run with `danger-full-access` as the operator's OS user and read messages from subscribed Threads. Account wrappers choose the agent's credentials by default; they do not isolate the process. A worker can execute programs by path and read the operator's home directory. For isolation, use a dedicated OS account containing only the agent's credentials.
 
@@ -33,7 +33,7 @@ Both presets run with `danger-full-access` as the operator's OS user and read me
 - Node.js 22.19+ or 24+, pnpm, git 2.32+, Python 3.8+ and tmux
 - GitHub CLI (`gh`) 2.48 or later. Source CLI fields must point to `gh` or `lark-cli` wrappers; the host relies on their subcommands and output formats.
 - A repository on github.com; GitHub Enterprise Server is not supported. To create a checkout per Ticket, keep a local clone from which the prepare command can add worktrees. Install `git-lfs` if that repository uses Git LFS.
-- A model provider configured for DeepSeek Harness. dsh-superagent uses the profile's default model unless the Eval or Execution settings name another.
+- A model provider configured for DeepSeek Harness. GlorySuperAgent uses the profile's default model unless the Eval or Execution settings name another.
 - For Feishu: `lark-cli` (tested with 1.0.90) and a Feishu or Lark app with a bot
 
 ## Accounts
@@ -54,7 +54,7 @@ Both presets run with `danger-full-access` as the operator's OS user and read me
    gh-agent api user --jq .login
    ```
 
-   Sign in as the agent account; the last command prints its login. dsh-superagent reads the login the same way.
+   Sign in as the agent account; the last command prints its login. GlorySuperAgent reads the login the same way.
 
 ### Feishu bot (optional)
 
@@ -80,11 +80,11 @@ Both presets run with `danger-full-access` as the operator's OS user and read me
 
 ## Install
 
-Run this block once, on a machine that has no `superagent` profile yet:
+Run this block once, on a machine that has no `superagent` profile yet. If the new repository URL is not live yet, use the transitional clone command in the README:
 
 ```sh
 npm install -g @deepseek-ai/dsh@0.2.1-rc.3
-git clone <this repository> dsh-superagent && cd dsh-superagent
+git clone https://github.com/qq2814703211-glitch/GlorySuperAgent.git && cd GlorySuperAgent
 pnpm install && pnpm build
 dsh superagent --from-default-profile web --dump-config > /dev/null
 dsh plugin --profile superagent add "link:$PWD"
@@ -138,7 +138,7 @@ It forwards the API and adds the panel token itself, so the browser never holds 
 
 The router, which reads text from strangers, runs with the CLI's built-in tools taken away and with the operator's own MCP servers ignored. The runner checks what the CLI reports it has and refuses the router if anything but the engine's own tools is there.
 
-**What the standalone host cannot do yet.** Only Claude Code is written. Codex, Gemini CLI and OpenCode need their MCP and resume invocations verified first; see `docs/spikes/001-cli-runners.md`. Workers are not isolated yet either: they run as your OS user and can read the panel token and the database ([SEC-01](https://github.com/abubakarsiddik31/super-agent-2/blob/main/ISSUES.md#sec-01-workers-run-unconfined-as-the-operators-os-user)).
+**What the standalone host cannot do yet.** Only Claude Code is written. Codex, Gemini CLI and OpenCode need their MCP and resume invocations verified first; see `docs/spikes/001-cli-runners.md`. Workers are not isolated yet either: they run as your OS user and can read the panel token and the database ([SEC-01](https://github.com/qq2814703211-glitch/GlorySuperAgent/blob/main/ISSUES.md#sec-01-workers-run-unconfined-as-the-operators-os-user)).
 
 ## Start and stop
 
@@ -173,7 +173,7 @@ Each profile stores logs and control files under `.artifacts/`:
 - Startup logs: `dsh-superagent-<profile>-<date>-<time>-<pid>.log`, where the pid belongs to the script. The newest 20 are kept.
 - Control files: `control/profiles/<profile>/`, containing the stop marker, lock and process id.
 
-Open the URL printed in the log, then choose **Superagent** in the sidebar.
+Open the URL printed in the log, then choose **GlorySuperAgent** in the sidebar.
 
 ### Hourly check
 
@@ -270,13 +270,15 @@ The process environment that setup writes:
 - **Command shims** in `<stateDir>/worker-bin`, first on `PATH`: `gh` runs the agent's CLI; `lark-cli` runs the bot's CLI; blocked commands fail. A shim removes its own directory from `PATH` before it runs its target.
 - **git configuration** in `<stateDir>/worker-gitconfig`: replaces the operator's global and system git configuration. It selects the agent CLI as the github.com credential helper, rewrites GitHub SSH addresses to HTTPS and defines Git LFS filters. Personal git settings such as an HTTP proxy do not apply. No commit identity is set here, git never prompts for credentials, and `GH_TOKEN` and `GITHUB_TOKEN` are removed.
 
-A file in `worker-bin` or `worker-gitconfig` that dsh-superagent did not write stops setup. A Ticket directory inside a git repository whose own configuration adds credentials fails the Ticket.
+A file in `worker-bin` or `worker-gitconfig` that GlorySuperAgent did not write stops setup. A Ticket directory inside a git repository whose own configuration adds credentials fails the Ticket.
 
 ## Try it
 
 From an allowed GitHub account, open an Issue or post a comment containing `@<agent login> <request>`. Within a polling interval (one minute by default), Overview should show a Ticket. The agent acknowledges the request, works in its own Session and directory, and delivers in the original conversation. For Feishu, mention the bot in a configured chat.
 
 ## Upgrade
+
+**Upgrading from the `dsh-superagent` package:** Keep your checkout and state directory in place. If the DSH profile links the bundle under the old package name, replace that package link with `glorysuperagent` pointing at the same checkout; do not load both bundles. Keep the `dsh-superagent` entry and preset IDs in the profile patch. Standalone installs need no state migration. If your GitHub Source watches this fork, update its `owner/name` after the administrator renames the remote repository. Your local checkout directory does not need to be renamed.
 
 1. Wait until no Executor is in the middle of a turn.
 2. Back up `<stateDir>/orchestrator.sqlite`.
@@ -303,9 +305,9 @@ Setup problems appear on the overview with a link to the fix, in the panel's lan
 | `@… cannot read …` or `@… cannot push to …` | Give the agent account write access to the repository |
 | `The GitHub Source names no repository.` | Set the repository, `owner/name`, on the GitHub card |
 | A Ticket fails with `The prepare command failed: …` | The output names the cause, such as a wrong clone path; fix the command, then retry the Ticket |
-| `git does not read the github.com credential configuration dsh-superagent writes` | Install git 2.32 or later |
+| `git does not read the github.com credential configuration GlorySuperAgent writes` | Install git 2.32 or later |
 | A Ticket fails with `The git configuration of the repository in … sets …` | Remove the named credential or `http.*.extraheader` settings from the clone's `.git/config` |
-| `… was not written by dsh-superagent` | Move the named file out of `<stateDir>/worker-bin` or `<stateDir>/worker-gitconfig`, or choose another `stateDir` |
+| `… was not written by GlorySuperAgent` | Move the named file out of `<stateDir>/worker-bin` or `<stateDir>/worker-gitconfig`, or choose another `stateDir` |
 | `The bot lark-cli allows user identities` | Point the Feishu Source at a bot-only configuration, as in Feishu bot above |
 | `The bot lark-cli does not work.` or `The bot identity of app … is …` | Check the configuration's app id and secret |
 | `The Feishu bot is not a member of the chat.` | Add the bot to the chat in the chat's settings; the next attempt succeeds |
@@ -313,7 +315,7 @@ Setup problems appear on the overview with a link to the fix, in the panel's lan
 | `status` exits 3 | Setup waits: `setup` says what is missing, and the overview links to the setting that fixes it |
 | `status` exits 1 | The service does not run, runs twice, does not answer, or its runtime reports an error; the output and the newest log say which |
 | `… timed out after 90 s`, `… was stopped by …`, `… exited with code …` or `… could not run: …` | A CLI failed without printing why; run the named program by hand as the operator's user to see its own message |
-| The panel says dsh-superagent is not answering | It is restarting, or did not start because of its configuration; the DeepSeek Harness log names the cause |
+| The panel says GlorySuperAgent is not answering | It is restarting, or did not start because of its configuration; the DeepSeek Harness log names the cause |
 | `dsh-superagent configuration has keys it does not use` (log) | Remove the named keys; the message says where each value lives now |
 | The log says the plugin is incompatible with the running dsh | Install a DeepSeek Harness version within the `engines.dsh` range |
 | The panel shows "Failed to load plugins" after a DeepSeek Harness upgrade | Restart the running instance |

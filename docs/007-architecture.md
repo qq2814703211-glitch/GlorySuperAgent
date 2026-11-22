@@ -362,6 +362,7 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `src/runner/dsh/runtime.ts` | `dshRuntime`, the engine built for a harness context: its host, its agent-side ports and the runtime over them |
 | `src/runner/dsh/index.ts` | What the DSH implementation exports |
 | `src/host/node.ts` | The `HostPort` over plain Node, for a host that runs without the DeepSeek Harness: its logger, its state directory, its limits, its management server, its shutdown steps and its restart |
+| `src/host/harness-table.ts` | Reads the worker harness table and resolves bundled adapter paths relative to its location |
 | `src/host/http.ts` | The management HTTP server over Node's `http`: it serves the loopback interface only, and a mounted prefix's handler owns each request |
 | `src/host/subprocess.ts` | The `Subprocess` over Node's `child_process`: the credential scrub a child starts from, the collected output of a stream, and the termination a signal starts |
 | `src/host/models.ts` | The `ModelInfo` of the standalone host: it checks that a configured route names a model and knows no provider of its own, because the CLI behind the runner chooses the model |
@@ -642,7 +643,7 @@ Most built-in instructions live in `prompts/*.md`, with one sentence per line jo
 
 Every plugin configuration key except `stateDir` is volatile. The panel's Deployment settings and DeepSeek Harness's Plugin Manager edit them through DeepSeek Harness's configuration form; the host writes `cordis.patch.yml` and updates the values in place, and dsh-superagent reads each limit when it uses it, so a change applies without a restart.
 
-A settings save that changes a Source field setup reads, such as an account's CLI, and any save while setup waits, restarts dsh-superagent. DeepSeek Harness's settings service does not serve the entry during that restart, so after its own restart dsh-superagent asks it to read the entry again, and an open form becomes editable again.
+A settings save that changes a Source field setup reads, such as an account's CLI, and any save while setup waits, restarts GlorySuperAgent. DeepSeek Harness's settings service does not serve the entry during that restart, so after its own restart GlorySuperAgent asks it to read the entry again, and an open form becomes editable again.
 
 ## Reviewing a change against real data
 
