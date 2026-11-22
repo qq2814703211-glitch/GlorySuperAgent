@@ -54,6 +54,21 @@ describe('router and worker CLIs', () => {
     expect(argv.map(line => line[0])).toEqual(['/only-cli'])
   })
 
+  it('confines identical command lines with the selected role’s own paths', async () => {
+    const shared = { command: '/node', args: ['/adapters/codex.mjs'] }
+    const routerCli = { ...shared, readable: ['/router-notes'] }
+    const workerCli = { ...shared, readable: ['/worker-install'], state: ['/worker-state'] }
+    const policies: unknown[] = []
+    const runner = new ClaudeRunner({ cli: routerCli, defaultHarness: 'codex', harnesses: { codex: workerCli },
+      subprocess: recorder().subprocess, logger: { warn: () => {}, error: () => {} },
+      confine: (_workspace, argv, cli) => { policies.push(cli); return argv } })
+    for (const role of ['orchestrator', 'worker'] as const) {
+      const agent = await runner.create({ id: role, cwd: '/tmp', role })
+      await runner.deliver(agent as never, message(role), 'queue')
+    }
+    expect(policies).toEqual([routerCli, workerCli])
+  })
+
   it('runs the harness the ticket named, and the default for one that named none', async () => {
     const { subprocess, argv } = recorder()
     const runner = new ClaudeRunner({ cli: { command: '/router-cli' },

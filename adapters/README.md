@@ -47,7 +47,9 @@ The standalone launcher accepts an inline `router` entry or the name of an entry
 }
 ```
 
-Set installation paths for the local host and retain the worker entries and default. `--context` can be repeated for operator-selected knowledge files whose contents may be sent to the configured model. Use a private router state directory. Each new session creates its own Hermes home there. Provider credentials come from the launch environment. `--hermes-bin`, `--provider` and `--base-url` may be supplied in the entry's arguments. `model` and `effort` are passed to Hermes chat.
+Set installation paths for the local host and retain the worker entries and default. `--context` can be repeated for operator-selected knowledge files whose contents may be sent to the configured model. Use a private router state directory. Each new session creates its own Hermes home there. `--hermes-bin`, `--provider` and `--base-url` may be supplied in the entry's arguments. `model` and `effort` are passed to Hermes chat.
+
+For a custom provider, set `--provider-profile /path/to/profile --provider NAME`. Give the router read access to that profile's `config.yaml` and `.env`, not write access. Only the selected provider's HTTPS endpoint, API mode and key are copied into the turn's private configuration. The adapter reads the key variable named by `key_env` or `api_key_env`; `--provider-key-env VARIABLE` selects it explicitly. Do not pass key values in the harness file or on the command line. The original profile's tools, other providers and unrelated secrets are not imported.
 
 The adapter checks the CLI's tool listing before passing the prompt. A missing inventory or one that differs from the authenticated engine listing aborts the turn. The v0.23.3 client generates this listing outside the gateway session. The gateway's effective tool set, resume after credential rotation, and a real router decision still need validation before deployment. Run `node --test adapters/test/hermes.test.mjs` for the adapter checks.
 

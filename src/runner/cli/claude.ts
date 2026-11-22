@@ -69,7 +69,7 @@ export interface ClaudeRunnerOptions {
    * Confines the process of an agent's turn. It receives the agent's workspace and the command line, and returns the
    * command line that runs it confined. Without it the CLI runs as the operator's own user.
    */
-  readonly confine?: (workspace: string, argv: readonly string[]) => readonly string[]
+  readonly confine?: (workspace: string, argv: readonly string[], cli: CliConfig) => readonly string[]
 }
 
 /** The init event of a CLI run, which names the session, the tools and the MCP servers. */
@@ -309,7 +309,7 @@ export class ClaudeRunner implements AgentRunner {
       noCommands: agent.role === 'orchestrator',
       timeoutMs: this.options.turnTimeoutMs ?? 30 * 60_000,
       signal: controller.signal,
-      ...this.options.confine ? { confine: (argv: readonly string[]) => this.options.confine!(agent.cwd, argv) } : {},
+      ...this.options.confine ? { confine: (argv: readonly string[]) => this.options.confine!(agent.cwd, argv, cli) } : {},
     }
     try {
       const result = await runTurn(this.options.subprocess, spec)
