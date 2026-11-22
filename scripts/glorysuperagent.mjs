@@ -2,19 +2,14 @@
 /**
  * The standalone host: the engine, the management API and the Sources in one plain Node process, with no DeepSeek software.
  *
- * Usage: `superagent [--state-dir DIR] [--port N] [--cli COMMAND] [--cli-model MODEL] [--sandbox auto|seatbelt|bubblewrap|off] [--allow-read PATH] [--allow-write PATH] [--no-open]`
+ * Run `glorysuperagent --help` for startup options.
  *
  * It serves the panel and the management API on one loopback address, 3082 unless that is taken, and opens the panel in the
  * browser. The state directory holds the database, the locks, the worker shims and the panel token. The management API listens on the
  * loopback interface; the panel token in the state directory authorizes it.
  */
 import { spawn } from 'node:child_process'
-import { readFileSync } from 'node:fs'
-/** The host is built into `lib`; a checkout that was not built says what to run instead of failing on a missing file. */
-const { startStandalone } = await import('../lib/standalone.js').catch(error => {
-  if (error?.code === 'ERR_MODULE_NOT_FOUND') { console.error('superagent is not built yet. Run `pnpm build`, then start it again.'); process.exit(1) }
-  throw error
-})
+import { routerCli } from './router-cli.mjs'
 
 /** Reads the command's options; each has a default and an environment variable. */
 function options(argv) {
@@ -34,7 +29,7 @@ function options(argv) {
     else if (argument === '--allow-read') (values.readable ??= []).push(argv[++index])
     else if (argument === '--allow-write') (values.writable ??= []).push(argv[++index])
     else if (argument === '--help' || argument === '-h') {
-      console.log('Usage: superagent [--state-dir DIR] [--port N] [--cli COMMAND] [--cli-model MODEL] [--sandbox auto|seatbelt|bubblewrap|off] [--allow-read PATH] [--allow-write PATH] [--no-open]')
+      console.log('Usage: glorysuperagent [--state-dir DIR] [--port N] [--cli COMMAND] [--cli-model MODEL] [--worker-cli COMMAND] [--worker-cli-model MODEL] [--harnesses FILE] [--default-harness NAME] [--sandbox auto|seatbelt|bubblewrap|off] [--allow-read PATH] [--allow-write PATH] [--no-open]')
       process.exit(0)
     } else throw new Error(`Unknown option: ${argument}`)
   }
@@ -43,14 +38,17 @@ function options(argv) {
 
 /** A JSON file of harness entries: `{ router?, default, harnesses: { name: { command, args?, model?, effort?, readable?, state? } } }`. */
 const values = options(process.argv.slice(2))
+const { startStandalone, readHarnessTable } = await import('../lib/standalone.js').catch(error => {
+  if (error?.code === 'ERR_MODULE_NOT_FOUND') { console.error('GlorySuperAgent is not built yet. Run `pnpm build`, then start it again.'); process.exit(1) }
+  throw error
+})
 const harnessFile = values.harnesses ?? process.env.SUPERAGENT_HARNESSES
-const harnessTable = harnessFile ? JSON.parse(readFileSync(harnessFile, 'utf8')) : undefined
+const harnessTable = harnessFile ? readHarnessTable(harnessFile) : undefined
 const stateDir = values.stateDir ?? process.env.SUPERAGENT_STATE_DIR
 const port = values.port ?? (process.env.SUPERAGENT_PORT ? Number(process.env.SUPERAGENT_PORT) : undefined)
 /** The router entry of the harness file: the CLI that reads text from strangers, and the model it answers with. */
-const routerEntry = harnessTable?.router
-const cli = values.cli ?? process.env.SUPERAGENT_CLI ?? routerEntry?.command
-const cliModel = values.cliModel ?? process.env.SUPERAGENT_CLI_MODEL ?? routerEntry?.model
+const cli = routerCli(harnessTable, values.cli ?? process.env.SUPERAGENT_CLI,
+  values.cliModel ?? process.env.SUPERAGENT_CLI_MODEL)
 const workerCli = values.workerCli ?? process.env.SUPERAGENT_WORKER_CLI
 const defaultHarness = values.defaultHarness ?? process.env.SUPERAGENT_DEFAULT_HARNESS ?? harnessTable?.default
 const workerCliModel = values.workerCliModel ?? process.env.SUPERAGENT_WORKER_CLI_MODEL
@@ -61,7 +59,7 @@ const start = port => startStandalone({
   port,
   ...values.sandbox ?? process.env.SUPERAGENT_SANDBOX ? { sandbox: values.sandbox ?? process.env.SUPERAGENT_SANDBOX } : {},
   ...values.readable || values.writable ? { sandboxExtras: { readable: values.readable ?? [], writable: values.writable ?? [] } } : {},
-  ...cli ? { cli: { command: cli, ...cliModel ? { model: cliModel } : {} } } : {},
+  ...cli ? { cli } : {},
   ...workerCli ? { workerCli: { command: workerCli, ...workerCliModel ? { model: workerCliModel } : {} } } : {},
   ...harnessTable?.harnesses ? { harnesses: harnessTable.harnesses } : {},
   ...defaultHarness ? { defaultHarness } : {},
@@ -74,8 +72,8 @@ catch (error) {
   host = await start(0)
 }
 const url = `http://127.0.0.1:${host.host.http.port}/`
-console.log(`superagent is running. Open the panel at ${url}`)
-console.log(`the agent CLI is ${cli ?? 'not configured; a ticket that needs an agent will fail'}`)
+console.log(`GlorySuperAgent is running. Open the panel at ${url}`)
+console.log(`the agent CLI is ${cli?.command ?? 'not configured; a ticket that needs an agent will fail'}`)
 if (workerCli) console.log(`the worker CLI is ${workerCli}`)
 if (harnessTable?.harnesses) console.log(`harnesses: ${Object.keys(harnessTable.harnesses).join(', ')}; default ${defaultHarness ?? 'none'}`)
 if (!values.noOpen && !process.env.CI) {

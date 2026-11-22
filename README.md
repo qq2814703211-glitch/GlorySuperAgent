@@ -1,10 +1,10 @@
 <div align="center">
 
-# Super-agent 2.0
+# GlorySuperAgent
 
 **An always-on coding agent for GitHub and chat. Bring any coding-agent CLI. Runs on your machine.**
 
-Super-agent listens to GitHub and chat, turns requests from people you authorize into tickets, and runs each one in its own workspace with the agent CLI you choose: Claude Code, Codex, Gemini CLI, OpenCode, or any other. It is built to stay safe while reading text from strangers, even if the model is fooled.
+GlorySuperAgent listens to GitHub and chat, turns requests from people you authorize into tickets, and runs each one in its own workspace with the agent CLI you choose: Claude Code, Codex, Gemini CLI, OpenCode, or any other. It is built to stay safe while reading text from strangers, even if the model is fooled.
 
 > **It runs on its own.** One command starts the host, the panel and your coding-agent CLI on your machine, with no DeepSeek software. Claude Code is the first CLI supported; the others are next. See the [roadmap](#roadmap).
 
@@ -15,7 +15,7 @@ Super-agent listens to GitHub and chat, turns requests from people you authorize
 </div>
 
 > [!NOTE]
-> **This is a community fork of [deepseek-ai/dsh-superagent-prototype](https://github.com/deepseek-ai/dsh-superagent-prototype), the reference code for DeepSeek's Super-agent design.** It's independent and not affiliated with or endorsed by DeepSeek. "2.0" is our name for this effort, not an official successor.
+> **GlorySuperAgent is a community fork of [deepseek-ai/dsh-superagent-prototype](https://github.com/deepseek-ai/dsh-superagent-prototype), the reference code for DeepSeek's Super-agent design.** It is independent and not affiliated with or endorsed by DeepSeek.
 
 > [!WARNING]
 > **Don't run this on a repository or machine you care about yet.** On the standalone host workers are now confined to their ticket directory ([SEC-01](ISSUES.md#sec-01-workers-run-unconfined-as-the-operators-os-user)), but they still reach the network and the CLI's own sign-in, and the other P0 items below are open. Inside the DeepSeek Harness they still run unconfined.
@@ -26,7 +26,7 @@ Super-agent listens to GitHub and chat, turns requests from people you authorize
 
 - **Seven small P1 items landed.** A worker report is capped at 4,000 characters and marked untrusted, and credentials a failed command printed are redacted before they reach a report or the router ([SEC-11](ISSUES.md#sec-11-worker-reports-pass-unbounded-untrusted-text-to-the-router)). A subagent whose ancestry does not resolve to a live ticket now gets no tools at all ([SEC-10](ISSUES.md#sec-10-deeply-nested-subagents-may-escape-tool-limits)). A timed-out request is answered once, in the requester's language ([COM-01](ISSUES.md#com-01-a-timed-out-evaluation-is-never-reported-to-the-requester)), and a failed ticket tells its requester itself instead of waiting on the router ([COM-02](ISSUES.md#com-02-ticket-failure-notices-depend-on-the-router-choosing-to-send-them)). Incoming events are rate limited at intake, before any model call ([COST-02](ISSUES.md#cost-02-no-rate-limit-on-incoming-events)). Taking a sender off the allowed list now stops the tickets that rested on their access, and revokes the follow-ups they held ([SEC-08](ISSUES.md#sec-08-removing-someones-access-doesnt-stop-their-work)). And there is CI at last: every pull request runs the checks, the attack chain and an audit, and a macOS job runs the sandbox spec ([TEST-02](ISSUES.md#test-02-no-ci-or-security-regression-gate)).
 - **Workers run in a sandbox.** On the standalone host every agent process, and everything it starts, runs under the operating system's own confinement: Seatbelt on macOS, bubblewrap on Linux. It cannot read your home directory, cannot touch the state directory (the database, the panel token, other tickets), and can write only in its own ticket directory. The host refuses to start an agent without a sandbox unless you pass `--sandbox off`. Tests run real commands under it, and the real Claude Code CLI works confined.
-- **One command runs everything.** `pnpm start` now serves the panel too, on the same address as the API, and opens it in your browser. There is no second server, no sign-in prompt, and the address stays the same when the engine restarts after a settings change. The panel's text no longer talks about DSH, and the state directory defaults to `~/.superagent`.
+- **Desktop window.** `pnpm start` opens the panel in its own application. Closing the window stops its local host. Existing state in `~/.superagent` is reused. The desktop window is the only surface: 0.0.1 removed the browser plugin client, so there is no web front end to run or deploy.
 
 **2 November 2026**
 
@@ -34,9 +34,8 @@ Super-agent listens to GitHub and chat, turns requests from people you authorize
 - **Claude Code runs a ticket.** The agent CLI is behind a runner of its own, and the engine's tools reach it over an MCP server the engine serves. The router, which reads text from strangers, runs with the CLI's built-in tools taken away, and the runner checks the CLI's own report of what it has and refuses it if anything else is there.
 - **The whole chain runs.** A request becomes a candidate, the router accepts it, a ticket appears with a workspace of its own, the CLI works in it, and its report reaches the ticket — all on the standalone host, with no DeepSeek software. The end-to-end test proves it with the real CLI.
 - **Ports in place.** The agent runner, host and model services now sit behind interfaces in `src/runner/port.ts`. DeepSeek Harness is the only implementation so far, and nothing about how it behaves changed. This is the seam that lets other runtimes plug in.
-- **A standalone panel.** The management UI in `desktop/` runs on its own, without the DeepSeek sidebar. It needs a running service for its data. Start it with `pnpm ui:dev`.
+- **A standalone panel.** The management UI in `desktop/` runs without the DeepSeek sidebar.
 - **Checked the agent CLIs.** We tried Claude Code, Codex, Gemini CLI and OpenCode for headless runs, session resume and removing built-in tools. Claude Code can run with no built-in tools, so it's the first CLI allowed to read strangers' text. For the other three, resume looks possible, but the tool-removal and tool-server setup still need testing.
-- **Checked the desktop webview.** The Tauri webview reaches the management API only if the API allows one extra origin, `tauri://localhost`. We'll add that as an option the desktop app turns on.
 - **Test with one account.** A new off-by-default `receiveOwnIssues` switch lets the agent receive Issues from its own GitHub account, so you can try it without a second account. Its own comments and pull requests are still ignored.
 - **Tests.** 1,231 pass.
 
@@ -46,7 +45,7 @@ Earlier: five weaknesses in the attack path were fixed at the host (see [fixed s
 
 The original only works as a plugin inside DeepSeek Harness (DSH). DSH loads it, shows its panel in the DSH sidebar, runs its agent sessions and work tools, and signs in to a DeepSeek model. We're changing that:
 
-- **No DeepSeek software needed.** A plain Node host and our own panel, then a desktop app (Tauri, macOS first). The host is built; the CLI behind it is next.
+- **No DeepSeek software needed.** The desktop application includes its own runtime and panel.
 - **Any CLI, per role.** You pick which coding-agent CLI does each job. We don't ship a model or an agent loop.
 - **Local first.** It runs on your machine against your repositories. Nothing is hosted.
 - **The same safety rules.** The host enforces the limits, whichever CLI is behind them.
@@ -80,13 +79,13 @@ The router reads text from strangers, so it's the role to protect. The host refu
 | Plain Node host that replaces DSH | Done; one process runs the panel, the Sources and the agent CLI |
 | CLI runners: Claude Code first, then Codex, Gemini CLI, OpenCode and a command template | Claude Code done; the others planned |
 | Sandbox for workers ([SEC-01](ISSUES.md#sec-01-workers-run-unconfined-as-the-operators-os-user)) | Done on macOS and Linux for the standalone host; no container or Windows yet |
-| Tauri desktop app with a setup wizard | Later |
+| Guided desktop setup wizard | Later |
 
 ## Why this exists
 
 The original repository [has issues, pull requests and discussions turned off](https://github.com/deepseek-ai/dsh-superagent-prototype) (checked through the GitHub API on 2 November 2026), so problems can't be reported or fixed there. **So we forked it, and we're fixing them here, in the open.** This is the same Super-agent code, with our changes on top.
 
-If you've read the article and want to work on the Super-agent, you can do that here: open an issue, send a pull request, or pick up an item from the backlog.
+If you've read the article and want to work on GlorySuperAgent, you can do that here: open an issue, send a pull request, or pick up an item from the backlog.
 
 The original is a good design and a fair starting point. Its [article](https://x.com/DeepSeekHarness/status/2116857257245987236) calls the code a research prototype and names security and privacy as an open problem. This project takes that problem on.
 
@@ -107,7 +106,7 @@ Prompts can ask a model to behave, but only the host can enforce it. We hold our
 | **Fixed at the host** | 5 weaknesses in the attack path, covered by [tests](tests/attack-chain.spec.ts) |
 | **Open** | [47 items](ISSUES.md): 5 P0, 12 P1, 18 P2, 12 P3 |
 | **Tested with** | The real gate, tools and HTTP routes on a fake harness with no model |
-| **Standalone** | The host, the panel and the Claude Code runner run as one product: `pnpm start`. The other CLIs and the desktop app are not built yet ([roadmap](#roadmap)) |
+| **Standalone** | The desktop application runs the host, panel and configured CLI runner together. |
 | **Not yet tested** | The real harness, or any real model following an injected comment ([SEC-04](ISSUES.md#sec-04-prove-or-disprove-the-attack-end-to-end)) |
 
 We haven't shown this attack working end to end. The tests prove what the host allows or refuses, not how a model behaves. We will publish results per model once the red-team run exists.
@@ -187,7 +186,6 @@ Each item in [ISSUES.md](ISSUES.md) has evidence, a failure scenario, acceptance
 | COST-02 | No rate limit on incoming events | Per-thread and per-sender limits before any model call, plus a circuit breaker |
 | TEST-01 | Nothing tests against the real harness | A smoke test that boots the real harness with a fake model |
 | TEST-02 | No CI or security regression gate | CI that runs checks, a dependency audit and the attack tests |
-| PKG-01 | The code and package still use the original name | Rename to `super-agent-2`, keeping the MIT notice and the unaffiliated line |
 | DOC-01 | No threat model or security policy | A `SECURITY.md` covering what is and isn't protected |
 
 ### P2 and P3
@@ -203,11 +201,8 @@ The architecture is why this project exists: a long-lived router with isolated w
 Only in a disposable environment, with a throwaway GitHub account, a private test repository and a spend-limited API key.
 
 ```bash
-git clone https://github.com/abubakarsiddik31/super-agent-2
-```
-
-```bash
-cd super-agent-2 && pnpm install && pnpm check
+git clone https://github.com/qq2814703211-glitch/GlorySuperAgent.git
+cd GlorySuperAgent && pnpm install && pnpm check
 ```
 
 **Start it.** One process runs the engine, the management API, the Sources, the agent CLI and the panel:
@@ -216,13 +211,15 @@ cd super-agent-2 && pnpm install && pnpm check
 pnpm build && pnpm start --cli claude
 ```
 
-It opens the panel at http://127.0.0.1:3082 (another free port when that one is taken; `--port` picks one, `--no-open` keeps the browser closed). There you add the repository and the agent's GitHub account in Settings, and the host checks them and starts. The state directory (by default `~/.superagent`) holds the database, the worker shims and the panel token; `--state-dir` moves it. The page the host serves carries the token, so there is no sign-in.
+The desktop app is the product: `pnpm start` opens it from a checkout, and `pnpm desktop:package` builds the Mac, Windows and Linux packages. The headless launcher is `glorysuperagent` (`node scripts/glorysuperagent.mjs --help`); it runs the same host against the same settings and ticket history when no desktop session is needed.
+
+In the desktop window, add the repository and the agent's GitHub account in Settings. Browser access to the standalone panel is no longer supported. The state directory (by default `~/.superagent`) holds the database, worker shims and panel token; `--state-dir` moves it. Quit the old host before opening the desktop app against the same state directory.
 
 **Workers are confined.** Each agent process runs in the operating system's sandbox (Seatbelt on macOS, bubblewrap on Linux): it can read and write only its own ticket directory and the repository's git directory, and cannot read your home directory or touch the state directory. `--allow-read PATH` and `--allow-write PATH` open one more path, for a toolchain in your home directory. The host refuses to start an agent on a machine with no sandbox; `--sandbox off` runs agents as your own user instead, and says so at startup. The CLI's own sign-in stays readable, and the network is open, until [SEC-02](ISSUES.md#sec-02-long-lived-credentials-are-within-a-workers-reach) is done.
 
-**Developing the panel.** `pnpm ui:dev` serves the panel from source with hot reload on http://localhost:5273 and forwards the API to a running host (`SUPERAGENT_API`, `SUPERAGENT_TOKEN_FILE`).
+**Package the app.** Run `pnpm desktop:package` on the target OS. Open `.artifacts/desktop/GlorySuperAgent-darwin-*/GlorySuperAgent.app` on Mac, `GlorySuperAgent.exe` inside the Windows output folder, or `GlorySuperAgent` inside the Linux output folder. The **Desktop packages** workflow builds archives on all three systems; extract the whole archive before launching. These development packages are not notarized or distribution-signed. A configured agent CLI and GitHub CLI still need to be installed and signed in; neither credentials nor machine-specific harness profiles are packaged. Windows can run the panel but does not have a supported worker sandbox.
 
-**Inside the DeepSeek Harness.** The original plugin still works, and still runs agents the DeepSeek way. To run it that way, ask a coding agent to follow [SETUP.md](SETUP.md). The code and commands still use the name `dsh-superagent`, and the management API needs the token described in [the deployment guide](docs/006-deployment.md).
+**Inside DeepSeek Harness.** Follow [SETUP.md](SETUP.md) for a new installation or the [upgrade instructions](docs/006-deployment.md#upgrade) for an existing profile. The private package is `glorysuperagent`. Profile entry IDs, the `scripts/dsh-superagent` command, environment variables and state directories keep their existing names so operators can reuse their settings and ticket history.
 
 ## Documentation
 
@@ -237,6 +234,8 @@ Read in order; each builds on the ones before it.
 - [006 Deployment](docs/006-deployment.md): manual setup, configuration, upgrades and troubleshooting
 - [007 Architecture](docs/007-architecture.md)
 - [008 Cookbook](docs/008-cookbook.md): adding a Source
+- [009 Keeping upgrades recoverable](docs/009-maintenance.md): state compatibility, rollback and the next reliability decisions
+- [010 One host, several repositories](docs/010-multi-repository.md): watching several repositories from one deployment
 
 ## Contributing
 
@@ -247,7 +246,7 @@ Issues and pull requests are open.
 3. Run `pnpm check`. New test files must be listed in [docs/007-architecture.md](docs/007-architecture.md).
 4. Use harmless marker text in tests, never working injection payloads or real credentials.
 
-**Found a vulnerability?** Please report it privately through [GitHub's security advisories](https://github.com/abubakarsiddik31/super-agent-2/security/advisories/new), not in a public issue.
+**Found a vulnerability?** Please report it privately through [GitHub's security advisories](https://github.com/qq2814703211-glitch/GlorySuperAgent/security/advisories/new), not in a public issue.
 
 ## License and credit
 

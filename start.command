@@ -1,6 +1,5 @@
 #!/bin/bash
-# One-click start for the local Superagent 2.0 host.
-# Panel: http://127.0.0.1:3082/  — the page carries its own token, no sign-in.
+# One-click start for the GlorySuperAgent desktop app.
 # Options pass straight through: ./start.command --port 3090 --sandbox off --cli claude
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -18,7 +17,5 @@ if [ ! -f lib/standalone.js ] || [ ! -f desktop/dist/index.html ]; then
   pnpm build
 fi
 
-# SUPERAGENT_CLI=claude turns the agent side on; without it the panel and Sources run and tickets fail visibly.
-# The router runs Claude Code (the only CLI that can prove a turn holds no built-in tool); workers run whatever the
-# ticket names in harnesses.json, and a ticket that names none runs its default.
-exec node scripts/superagent.mjs --harnesses "$PWD/harnesses.json" --cli claude "$@"
+# The router CLI and the workers come from harnesses.json; a ticket that names none runs its default.
+exec pnpm start --cli "${SUPERAGENT_CLI:-claude}" --harnesses "$PWD/harnesses.json" "$@"

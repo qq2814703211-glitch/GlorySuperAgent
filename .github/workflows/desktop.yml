@@ -1,0 +1,59 @@
+name: Desktop packages
+on: [pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm desktop:package
+      - uses: actions/checkout@v4
+        if: runner.os == 'macOS' && github.event_name == 'pull_request'
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: .artifacts/baseline
+          persist-credentials: false
+      - name: Open the Mac application and capture the panel
+        if: runner.os == 'macOS'
+        run: |
+          baseline=.artifacts/baseline
+          if test -f "$baseline/scripts/superagent.mjs"; then
+            (cd "$baseline" && pnpm install --frozen-lockfile && pnpm build)
+            node desktop/smoke.mjs .artifacts/desktop/GlorySuperAgent-darwin-*/GlorySuperAgent.app/Contents/MacOS/GlorySuperAgent "$baseline"
+          else
+            node desktop/smoke.mjs .artifacts/desktop/GlorySuperAgent-darwin-*/GlorySuperAgent.app/Contents/MacOS/GlorySuperAgent
+          fi
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'macOS'
+        with:
+          name: mac-window-captures
+          path: .artifacts/comparison/*.png
+      - name: Archive Mac app with executable modes and symlinks
+        if: runner.os == 'macOS'
+        run: ditto -c -k --keepParent .artifacts/desktop/GlorySuperAgent-darwin-*/GlorySuperAgent.app .artifacts/GlorySuperAgent-mac.zip
+      - name: Archive Linux app with executable modes and symlinks
+        if: runner.os == 'Linux'
+        run: tar -C .artifacts/desktop -czf .artifacts/GlorySuperAgent-linux.tar.gz GlorySuperAgent-linux-x64
+      - name: Archive Windows app
+        if: runner.os == 'Windows'
+        run: Compress-Archive -Path .artifacts/desktop/GlorySuperAgent-win32-x64 -DestinationPath .artifacts/GlorySuperAgent-windows.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GlorySuperAgent-${{ runner.os }}-${{ runner.arch }}
+          path: |
+            .artifacts/GlorySuperAgent-mac.zip
+            .artifacts/GlorySuperAgent-windows.zip
+            .artifacts/GlorySuperAgent-linux.tar.gz
+          include-hidden-files: true
+          if-no-files-found: error

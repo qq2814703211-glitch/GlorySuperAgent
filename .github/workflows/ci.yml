@@ -15,6 +15,19 @@ permissions:
   contents: read
 
 jobs:
+  storage-compatibility:
+    name: SQLite upgrades on Node 22.19.0
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.19.0
+      - uses: pnpm/action-setup@v4
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec vitest run tests/migration.spec.ts tests/store.spec.ts
+
   check:
     name: Typecheck, tests and build
     runs-on: ubuntu-latest
@@ -29,6 +42,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       # `pnpm check` is the typecheck, the full test suite and the build.
       - run: pnpm check
+      - name: Hermes router adapter contract
+        run: node --test adapters/test/hermes.test.mjs
       # The attack chain is the reason this project exists: run it again under its own name, so a regression names itself in the
       # job rather than hiding among 1,200 other tests.
       - name: Attack-chain regression gate

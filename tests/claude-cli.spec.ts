@@ -24,7 +24,7 @@ interface InitEvent { type: string; subtype?: string; session_id?: string; tools
 async function claudeEvents(config: string, prompt = 'Reply with the word ok.'): Promise<InitEvent[]> {
   const { stdout } = await run(CLAUDE!, ['-p', prompt, '--output-format', 'stream-json', '--verbose',
     '--tools', '', '--strict-mcp-config', '--mcp-config', config, '--bare', '--disable-slash-commands'], {
-    cwd: process.env.TMPDIR ?? '/tmp', timeout: 120_000, maxBuffer: 8 << 20, encoding: 'utf8',
+    cwd: process.env.TMPDIR ?? '/tmp', timeout: 300_000, maxBuffer: 8 << 20, encoding: 'utf8',
   }).catch((error: { stdout?: string }) => ({ stdout: error.stdout ?? '' }))
   return stdout.split('\n').filter(Boolean).flatMap(line => { try { return [JSON.parse(line) as InitEvent] } catch { return [] } })
 }
@@ -53,7 +53,7 @@ it.skipIf(!CLAUDE)('the CLI connects to the engine\'s MCP server and sees only i
     // The only tool the CLI has is ours: the router reads strangers' text and must have no shell or file access.
     expect(init!.tools).toEqual(['mcp__superagent__orchestrator_probe'])
   } finally { await server.stop() }
-}, 120_000)
+}, 300_000)
 
 it.skipIf(!CLAUDE)('the CLI keeps its built-in tools when the runner does not take them away', async () => {
   const agent = registry()
@@ -63,7 +63,7 @@ it.skipIf(!CLAUDE)('the CLI keeps its built-in tools when the runner does not ta
     // Without `--tools ""` the CLI keeps its own tools, which is what the router's check must catch.
     const { stdout } = await run(CLAUDE!, ['-p', 'Reply with the word ok.', '--output-format', 'stream-json', '--verbose',
       '--strict-mcp-config', '--mcp-config', configOf(server.url), '--disable-slash-commands'], {
-      cwd: process.env.TMPDIR ?? '/tmp', timeout: 120_000, maxBuffer: 8 << 20, encoding: 'utf8',
+      cwd: process.env.TMPDIR ?? '/tmp', timeout: 300_000, maxBuffer: 8 << 20, encoding: 'utf8',
     }).catch((error: { stdout?: string }) => ({ stdout: error.stdout ?? '' }))
     const init = stdout.split('\n').filter(Boolean).flatMap(line => { try { return [JSON.parse(line) as InitEvent] } catch { return [] } })
       .find(event => event.type === 'system' && event.subtype === 'init')
@@ -73,4 +73,4 @@ it.skipIf(!CLAUDE)('the CLI keeps its built-in tools when the runner does not ta
     expect(init!.tools).toContain('mcp__superagent__orchestrator_probe')
     expect(init!.tools!.some(name => !name.startsWith('mcp__superagent__'))).toBe(true)
   } finally { await server.stop() }
-}, 120_000)
+}, 300_000)

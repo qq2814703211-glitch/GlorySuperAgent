@@ -59,6 +59,10 @@ export function turnArgs(spec: TurnSpec): string[] {
   const args = ['-p', spec.prompt, '--output-format', 'stream-json', '--verbose']
   if (spec.noBuiltins) args.push('--tools', '')
   if (spec.strictMcp) args.push('--strict-mcp-config')
+  // A non-interactive CLI refuses every MCP tool it was not told to allow ("you haven't granted it yet"), which the
+  // router and a CLI worker both hit. Name the engine's server: it serves each role only its own tools, and the
+  // router's built-ins are already gone, so this cannot widen what either may do.
+  if (spec.mcpConfig) args.push('--allowedTools', 'mcp__superagent')
   if (spec.noCommands) args.push('--disable-slash-commands')
   if (spec.mcpConfig) args.push('--mcp-config', spec.mcpConfig)
   // The engine's prompt replaces the CLI's own, so the agent runs under the engine's instructions only.
@@ -118,6 +122,13 @@ export async function runTurn(subprocess: Subprocess, spec: TurnSpec): Promise<T
     const { exitCode } = await handle.done
     const stdout = handle.collected.stdout?.readFrom(0).text ?? ''
     const stderr = handle.collected.stderr?.readFrom(0).text ?? ''
+    // Opt-in: a turn run by the host has no terminal, so SUPERAGENT_TURN_LOG names a file that keeps what the CLI
+    // printed. Diagnosing a turn that ends without the tool call it was asked for needs the CLI's own words.
+    if (process.env.SUPERAGENT_TURN_LOG) {
+      const { appendFileSync } = await import('node:fs')
+      appendFileSync(process.env.SUPERAGENT_TURN_LOG, JSON.stringify({ at: new Date().toISOString(), exitCode,
+        command: spec.command, args: spec.args.slice(0, 4), stdout: stdout.slice(-40000), stderr: stderr.slice(-8000) }) + '\n')
+    }
     let seq = 0
     for (const line of stdout.split('\n')) {
       if (!line.trim()) continue

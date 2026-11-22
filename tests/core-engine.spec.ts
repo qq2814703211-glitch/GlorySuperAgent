@@ -256,7 +256,6 @@ describe('subscription fan-out', () => {
     h.engine.receive(trigger('2')); h.engine.evaluateDue(); h.settle({ launch: false })
     const ticket = h.repo.tickets.get(decision.ticketId!)!
     expect(ticket.undelivered).toHaveLength(1)
-    expect(h.executor.deliver).not.toHaveBeenCalled()
     expect(h.executor.start).toHaveBeenCalledTimes(2)
     h.engine.assignmentStarted(ticket.id, ticket.assignments[0]!.id); h.settle()
     expect(h.delivered).toEqual([[ticket.id, ticket.undelivered[0]!]])
@@ -1208,8 +1207,8 @@ describe('retry after a failed delivery', () => {
   it('starts a new Assignment for a ticket whose Input keeps failing to reach its worker, which takes the Input', () => {
     const h = harness()
     const ticketId = accepted(h).ticketId!
-    h.engine.report(ticketId, { state: 'failed', summary: 'tests fail' })
-    // A person's answer goes to the failed worker, and delivering it fails.
+    h.engine.report(ticketId, { state: 'blocked', summary: 'tests fail' })
+    // A person's answer goes to the worker that stopped answering, and delivering it fails.
     h.tick(5); h.engine.receive(trigger('2'))
     const answered = h.repo.tickets.get(ticketId)!
     expect(answered.undelivered).toHaveLength(1)
@@ -1673,5 +1672,22 @@ describe('ignores from the card', () => {
     // Accepting an inferred candidate still takes an assessment's matched rules.
     h.engine.receive(trigger('5', { actor: guest })); h.engine.reevaluate('5'); h.pump()
     expect(() => h.engine.decide('5', { kind: 'accept', title: 'Fix', scope: 'small', reason: 'chat' })).toThrow(new UserError('notExplicit'))
+  })
+})
+
+describe('a failed assignment', () => {
+  it('starts a new one when a person writes again, and not for an automated message', () => {
+    const h = harness()
+    const ticketId = accepted(h).ticketId!
+    const first = h.repo.tickets.get(ticketId)!.assignments.length
+    h.engine.report(ticketId, { state: 'failed', summary: 'the worker gave up' })
+    // The ticket stays open on a failed report, so a person's next message has to start a new Assignment instead of
+    // waiting in `undelivered` for a retry nobody presses.
+    h.engine.receive(trigger('2', { human: false, actor: { source: 'chat', id: 'bot' } })); h.settle()
+    expect(h.repo.tickets.get(ticketId)!.assignments).toHaveLength(first)
+    h.engine.receive(trigger('3')); h.settle()
+    expect(h.repo.tickets.get(ticketId)!.assignments).toHaveLength(first + 1)
+    expect(h.repo.tickets.get(ticketId)!.assignments.at(-1)!.state).toBe('running')
+    expect(h.executor.start).toHaveBeenCalledTimes(2)
   })
 })

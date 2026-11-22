@@ -37,6 +37,41 @@ function schema10(path: string, records: Record<string, unknown>, rows: { ticket
 const actor = { source: 'feishu', id: 'ou_alice' }
 const mandate = (basis: object) => ({ strength: 'explicit', policyVersion: 'v1', basis, actor, scope: 'small' })
 
+it.each([undefined, '"11"', '10.5', '{}', 'broken JSON'])('does not adopt or migrate a database with schema marker %s', raw => {
+  const path = join(directory, 'db.sqlite')
+  const db = new DatabaseSync(path)
+  db.exec('CREATE TABLE kv (key TEXT PRIMARY KEY, value TEXT NOT NULL)')
+  const insert = db.prepare('INSERT INTO kv VALUES (?, ?)')
+  insert.run('operator-note', '"keep"')
+  if (raw !== undefined) insert.run('schema', raw)
+  const snapshot = () => [db.prepare('SELECT * FROM kv ORDER BY key').all(), db.prepare('SELECT sql FROM sqlite_schema ORDER BY name').all(),
+    db.prepare('PRAGMA journal_mode').get()]
+  try {
+    const before = snapshot()
+    expect(() => new Store(path)).toThrow(/database schema marker/)
+    expect(snapshot()).toEqual(before)
+  } finally { db.close() }
+})
+
+it('does not initialize another application\'s database', () => {
+  const path = join(directory, 'db.sqlite')
+  const db = new DatabaseSync(path)
+  try {
+    db.exec('CREATE TABLE notes (value TEXT)')
+    expect(() => new Store(path)).toThrow(/database schema marker/)
+    expect(db.prepare('SELECT name FROM sqlite_schema').all()).toEqual([{ name: 'notes' }])
+  } finally { db.close() }
+})
+
+it('can finish initialization when an older start left only the empty kv table', () => {
+  const path = join(directory, 'db.sqlite')
+  const db = new DatabaseSync(path)
+  db.exec('CREATE TABLE kv (key TEXT PRIMARY KEY, value TEXT NOT NULL)')
+  db.close()
+  const store = new Store(path)
+  try { expect(store.get(KV.store.schema)).toBe(SCHEMA_VERSION) } finally { store.close() }
+})
+
 it('refuses a database older than schema 10 and asks for a new state directory', () => {
   const path = join(directory, 'db.sqlite')
   new Store(path).close()
@@ -50,7 +85,7 @@ it('writes a schema 10 database in its current shape once, so nothing reads an o
   const ticket = {
     id: 't1', title: 'Fix', decisionId: 'd1', state: 'open', assignments: [], summary: '', createdAt: '1', updatedAt: '2',
     // In schema 10, a GitHub Channel without a comment link marked a PR that the ticket opened.
-    channels: [{ source: 'github', thread: 'github:8', address: { number: '8' } }, { source: 'github', thread: 'github:7', address: { number: '7', url: 'https://github.com/acme/widgets/pull/7#issuecomment-1' } }],
+    channels: [{ source: 'github', thread: 'github:acme/widgets#8', address: { number: '8' } }, { source: 'github', thread: 'github:acme/widgets#7', address: { number: '7', url: 'https://github.com/acme/widgets/pull/7#issuecomment-1' } }],
     mandate: mandate({ chatId: 'oc_team', direct: false, member: 'ou_alice', mention: true }),
     inputs: [{ id: 'i1', kind: 'reopen', decisionId: 'd2', at: '3' }, { id: 'i2', kind: 'reopen', decisionId: 'd0', at: '0' },
       { id: 'i3', kind: 'trigger', triggerId: 'trig-2', at: '4' }, { id: 'i4', kind: 'trigger', triggerId: 'ci-1', at: '5' }], undelivered: ['i1'],
@@ -67,15 +102,15 @@ it('writes a schema 10 database in its current shape once, so nothing reads an o
   const reopened = { id: 'd2', threadKey: 'feishu:oc_team:om_1', triggerIds: ['trig-2'], kind: 'reopen', reason: 'follow-up', at: '3', ticketId: 't1', policyVersion: 'v1' }
   const unavailable = { id: 'd3', threadKey: 'feishu:oc_team:om_1', triggerIds: ['trig-2'], kind: 'unavailable', reason: 'Assessment timed out', at: '5', policyVersion: 'v1' }
   const triggers = [{ id: 'trig-2', source: 'feishu', threads: [{ source: 'feishu', id: 'oc_team:om_1' }], actor, human: true, at: '4', text: 'more', meta: {} },
-    { id: 'ci-1', source: 'github', threads: [{ source: 'github', id: '7' }], actor: { source: 'github', id: 'ci' }, human: false, at: '5', text: 'CI', meta: {} }]
+    { id: 'ci-1', source: 'github', threads: [{ source: 'github', id: 'acme/widgets#7' }], actor: { source: 'github', id: 'ci' }, human: false, at: '5', text: 'CI', meta: {} }]
   const decision = { id: 'd1', threadKey: 'feishu:oc_team:om_1', triggerIds: ['trig-1'], kind: 'accept', reason: '', at: '1', ticketId: 't1', policyVersion: 'v1',
     mandate: mandate({ legacyAuthority: 'proactive_rule', observation: true, rules: ['copy'] }) }
-  const evaluating = { id: 'e1', threadKey: 'github:5', triggerIds: ['x'], strength: 'inferred', actor, policyVersion: 'v1', startedAt: '', deadline: '',
+  const evaluating = { id: 'e1', threadKey: 'github:acme/widgets#5', triggerIds: ['x'], strength: 'inferred', actor, policyVersion: 'v1', startedAt: '', deadline: '',
     basis: { source: 'github', scope: { number: 5 }, row: 'issues', admission: 'listedUnaddressed', observation: true, mode: 'auto' } }
-  const thread = { key: 'github:5', ref: { source: 'github', id: '5' }, createdAt: '', subscriptions: [], correlated: [], pending: [], evaluating, meta: {} }
+  const thread = { key: 'github:acme/widgets#5', ref: { source: 'github', id: 'acme/widgets#5' }, createdAt: '', subscriptions: [], correlated: [], pending: [], evaluating, meta: {} }
   schema10(path, {
     settings: { policy: { rules: [{ id: 'copy', name: 'Copy', enabled: true, instruction: 'x', visual: true }] }, executor: { reviewer: 'bob', prepare: 'echo $DSH_TAG_DIR' },
-      sources: { 'github-issue': { enabled: true, config: {} }, github: { enabled: true, config: { mergeCli: 'gh' } } } },
+      sources: { 'github-issue': { enabled: true, config: {} }, github: { enabled: true, config: { repository: 'acme/widgets', mergeCli: 'gh' } } } },
     'settings-version:1': { revision: 1, savedAt: '', source: 'web', policyVersion: '', policyChanged: false, notified: [],
       settings: { allowedChats: ['oc_team'], members: [], sources: undefined } },
     'settings-version:2': { revision: 2, savedAt: '', source: 'orchestrator-tool', policyVersion: '', policyChanged: false, notified: [],
@@ -125,8 +160,8 @@ it('writes a schema 10 database in its current shape once, so nothing reads an o
     origin: { triggerId: 'trig-1', triggerIds: ['trig-1', 'trig-2'] },
     execution: { name: 'fix-1', directory: '/w/fix-1', assignment: 'Read trigger/trig-1.' },
     delivery: { error: 'offline', at: '2' },
-    follows: [{ thread: 'github:8', own: true, closed: { at: '2026-09-01T00:00:00Z', outcome: 'merged' } }, { thread: 'github:7', own: false }],
-    channels: [{ source: 'github', thread: 'github:7', address: { number: '7', url: 'https://github.com/acme/widgets/pull/7#issuecomment-1' } }],
+    follows: [{ thread: 'github:acme/widgets#8', own: true, closed: { at: '2026-09-01T00:00:00Z', outcome: 'merged' } }, { thread: 'github:acme/widgets#7', own: false }],
+    channels: [{ source: 'github', thread: 'github:acme/widgets#7', address: { number: '7', url: 'https://github.com/acme/widgets/pull/7#issuecomment-1' } }],
     answers: ['trig-3'],
     mandate: { basis: { via: 'listed', source: 'feishu', scope: { chatId: 'oc_team', direct: false }, sender: 'ou_alice', addressed: 'mention' } },
   })
@@ -149,7 +184,7 @@ it('writes a schema 10 database in its current shape once, so nothing reads an o
   expect(store.decisions.get('d2')).toEqual({ ...reopened, reason: [{ code: 'said', values: { text: 'follow-up' } }] })
   expect(store.decisions.get('d3')!.reason).toEqual([{ code: 'timeout' }])
   expect(store.decisions.get('d1')!.mandate!.basis).toEqual({ via: 'listed', rules: ['copy'], observation: {}, authority: 'proactive_rule' })
-  expect(store.threads.get('github:5')!.evaluating!.basis).toEqual({ via: 'admission', source: 'github', scope: { number: 5 }, row: 'issues',
+  expect(store.threads.get('github:acme/widgets#5')!.evaluating!.basis).toEqual({ via: 'admission', source: 'github', scope: { number: 5 }, row: 'issues',
     cell: 'listedUnaddressed', observation: { mode: 'auto' } })
   // kv: an Input is rendered from its ticket as it is read, so no body stays; records nothing reads go, and so do the
   // removed Issue Source's, which the migration converted.
@@ -202,7 +237,7 @@ it('changes nothing when one step fails: the database stays at schema 10 as it w
     updatedAt: '2', mandate: mandate({ via: 'listed' }), meta: { sourceTriggerId: 'trig-1', workspace: '/w/fix-1' } }
   // The current settings must validate; an invalid value aborts the migration transaction.
   schema10(path, { settings: { executor: { maxWorkers: 'many' } } }, { ticket: [ticket] })
-  expect(() => new Store(path)).toThrow(/^The orchestrator database is unchanged at schema 10: its migration to schema 11 failed: the settings: /)
+  expect(() => new Store(path)).toThrow(/^The orchestrator database is unchanged at schema 10: its migration to schema 12 failed: the settings: /)
   const db = new DatabaseSync(path)
   expect(db.prepare("SELECT value FROM kv WHERE key='schema'").get()).toEqual({ value: '10' })
   expect(JSON.parse(String(db.prepare("SELECT value FROM ticket WHERE id='t1'").get()!.value))).toMatchObject({ meta: { workspace: '/w/fix-1' } })
@@ -371,10 +406,11 @@ it('writes the Sources\' records in their current shape once, so no Source conve
   const path = join(directory, 'db.sqlite')
   const recent = new Date(Date.now() - 3600_000).toISOString()
   const dm = { source: 'feishu', thread: 'feishu:oc_dm', address: { chatId: 'oc_dm', messageId: 'om_1' } }
-  const evaluating = { id: 'e1', threadKey: 'github:5', triggerIds: ['issue'], strength: 'inferred', actor, policyVersion: 'v1',
+  const evaluating = { id: 'e1', threadKey: 'github:acme/widgets#5', triggerIds: ['issue'], strength: 'inferred', actor, policyVersion: 'v1',
     startedAt: '',
     deadline: '', basis: { via: 'listed' } }
   schema10(path, {
+    settings: { sources: { github: { enabled: true, config: { repository: 'acme/widgets' } } } },
     'feishu-chats': { oc_dm: true, oc_team: false }, 'feishu-history:oc_team': '2026-09-01T00:00:00.000Z',
     // Earlier versions kept a chat's topics as a list.
     'feishu-history-threads:oc_team': ['omt_old'],
@@ -386,11 +422,11 @@ it('writes the Sources\' records in their current shape once, so no Source conve
     trigger: [{ id: 'dm', source: 'feishu', threads: [{ source: 'feishu', id: 'oc_dm:om_1' }], actor, human: true,
       at: '2026-09-01T00:00:00Z',
       text: 'fix', channel: dm, meta: {} },
-    { id: 'issue', source: 'github-issue', threads: [{ source: 'github', id: '12' }], actor: { source: 'github', id: 'alice' }, human: true,
+    { id: 'issue', source: 'github-issue', threads: [{ source: 'github', id: 'acme/widgets#12' }], actor: { source: 'github', id: 'alice' }, human: true,
       at: '2026-09-01T00:00:00Z', text: 'Login fails', meta: { number: 12 } }],
     thread: [{ key: 'feishu:oc_team:om_9', ref: { source: 'feishu', id: 'oc_team:om_9' }, createdAt: '', subscriptions: [], correlated: [],
       pending: [], meta: {} },
-    { key: 'github:5', ref: { source: 'github', id: '5' }, createdAt: '', subscriptions: [], correlated: [], pending: [], evaluating,
+    { key: 'github:acme/widgets#5', ref: { source: 'github', id: 'acme/widgets#5' }, createdAt: '', subscriptions: [], correlated: [], pending: [], evaluating,
       meta: {} }],
   })
   const db = new DatabaseSync(path)
@@ -409,9 +445,9 @@ it('writes the Sources\' records in their current shape once, so no Source conve
   expect(store.threads.get('feishu:oc_team:om_9')!.meta.url).toBe('https://applink.feishu.cn/client/chat/open?openChatId=oc_team')
   expect(store.triggers.get('issue')!.source).toBe('github')
   // The waiting mention within the polling horizon is read again; the older one is no fresh request.
-  expect(store.get(KV.github.retries)).toEqual({ 12: { since: recent, pr: false } })
-  expect(store.get(KV.github.cursor(7))).toBe('2026-09-03T00:00:00.000Z')
-  expect(store.get(KV.github.cursor(8))).toBe('2026-09-04T00:00:00.000Z')
+  expect(store.get(KV.github.retries('acme/widgets'))).toEqual({ 12: { since: recent, pr: false } })
+  expect(store.get(KV.github.cursor('acme/widgets', 7))).toBe('2026-09-03T00:00:00.000Z')
+  expect(store.get(KV.github.cursor('acme/widgets', 8))).toBe('2026-09-04T00:00:00.000Z')
   for (const name of ['github-issue-pending', 'github-issues-since', 'github-thread:7', 'thread-since:github:7', 'github-thread:8']) {
     expect(store.get(name)).toBeUndefined()
   }
@@ -457,14 +493,14 @@ function indexed(path: string, triggers: { id: string; at: string; threads: { so
 
 it('dates each Thread from its Triggers, and keeps every Trigger\'s time in the one form stored times take', () => {
   const path = join(directory, 'db.sqlite')
-  const comment = (id: string, at: string) => ({ id, source: 'github', threads: [{ source: 'github', id: '7' }], actor, human: true, at, text: id, meta: {} })
+  const comment = (id: string, at: string) => ({ id, source: 'github', threads: [{ source: 'github', id: 'acme/widgets#7' }], actor, human: true, at, text: id, meta: {} })
   // GitHub wrote its times in whole seconds; a Thread a schema 10 build saved before it knew of activity times has none.
   const triggers = [comment('first', '2026-10-01T00:00:00Z'), comment('last', '2026-10-09T00:00:00.000Z')]
-  schema10(path, {}, { trigger: triggers,
-    thread: [{ key: 'github:7', ref: { source: 'github', id: '7' }, createdAt: '2026-10-05T00:00:00.000Z', subscriptions: [], correlated: [], pending: [], meta: {} }] })
+  schema10(path, { settings: { sources: { github: { enabled: true, config: { repository: 'acme/widgets' } } } } }, { trigger: triggers,
+    thread: [{ key: 'github:acme/widgets#7', ref: { source: 'github', id: 'acme/widgets#7' }, createdAt: '2026-10-05T00:00:00.000Z', subscriptions: [], correlated: [], pending: [], meta: {} }] })
   indexed(path, triggers)
   const store = new Store(path)
-  expect(store.threads.get('github:7')).toMatchObject({ createdAt: '2026-10-01T00:00:00.000Z', lastAt: '2026-10-09T00:00:00.000Z' })
+  expect(store.threads.get('github:acme/widgets#7')).toMatchObject({ createdAt: '2026-10-01T00:00:00.000Z', lastAt: '2026-10-09T00:00:00.000Z' })
   expect(store.triggers.get('first')!.at).toBe('2026-10-01T00:00:00.000Z')
   expect(store.db.prepare("SELECT at FROM trigger WHERE id = 'first' UNION ALL SELECT at FROM trigger_thread WHERE id = 'first'").all())
     .toEqual([{ at: '2026-10-01T00:00:00.000Z' }, { at: '2026-10-01T00:00:00.000Z' }])
@@ -475,7 +511,7 @@ it('names the ticket it stopped at when a ticket does not read, and leaves the d
   const path = join(directory, 'db.sqlite')
   const { inputs: _inputs, ...broken } = ticket10('t9')
   schema10(path, {}, { ticket: [broken] })
-  expect(() => new Store(path)).toThrow(/^The orchestrator database is unchanged at schema 10: its migration to schema 11 failed: ticket t9: /)
+  expect(() => new Store(path)).toThrow(/^The orchestrator database is unchanged at schema 10: its migration to schema 12 failed: ticket t9: /)
   const db = new DatabaseSync(path)
   expect(db.prepare("SELECT value FROM kv WHERE key='schema'").get()).toEqual({ value: '10' })
   expect(JSON.parse(String(db.prepare("SELECT value FROM ticket WHERE id='t9'").get()!.value))).toEqual(broken)
@@ -526,11 +562,11 @@ it('marks a ticket\'s Channel to a direct Feishu chat as direct, and links a Thr
 
 it('delivers the candidate of an Eval in progress at the upgrade again, so its deadline starts and it can expire', () => {
   const path = join(directory, 'db.sqlite')
-  const evaluating = { id: 'e9', threadKey: 'github:9', triggerIds: ['issue-9'], strength: 'explicit', actor, policyVersion: 'v1', startedAt: '1',
+  const evaluating = { id: 'e9', threadKey: 'github:acme/widgets#9', triggerIds: ['issue-9'], strength: 'explicit', actor, policyVersion: 'v1', startedAt: '1',
     deadline: '2', basis: { via: 'listed' } }
-  schema10(path, {}, {
-    trigger: [{ id: 'issue-9', source: 'github', threads: [{ source: 'github', id: '9' }], actor, human: true, at: '2026-09-01T00:00:00Z', text: 'Fix it', meta: {} }],
-    thread: [{ key: 'github:9', ref: { source: 'github', id: '9' }, createdAt: '', subscriptions: [], correlated: [], pending: [], evaluating, meta: {} }],
+  schema10(path, { settings: { sources: { github: { enabled: true, config: { repository: 'acme/widgets' } } } } }, {
+    trigger: [{ id: 'issue-9', source: 'github', threads: [{ source: 'github', id: 'acme/widgets#9' }], actor, human: true, at: '2026-09-01T00:00:00Z', text: 'Fix it', meta: {} }],
+    thread: [{ key: 'github:acme/widgets#9', ref: { source: 'github', id: 'acme/widgets#9' }, createdAt: '', subscriptions: [], correlated: [], pending: [], evaluating, meta: {} }],
   })
   const store = new Store(path)
   const effects = store.db.prepare("SELECT key, value FROM effect WHERE kind = 'assessment'").all().map(row => [row.key, JSON.parse(String(row.value))])

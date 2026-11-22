@@ -110,8 +110,10 @@ describe('Source registry', () => {
   it('finds what a search query names in each kind\'s terms', () => {
     const sources = new SourceRegistry(() => SettingsSchema.parse({}))
     sources.register(feishuKind); sources.register(githubKind)
-    expect(sources.find('#12')).toEqual({ threads: ['github:12'], terms: [] })
-    expect(sources.find('https://github.com/acme/widgets/pull/7#issuecomment-3')).toEqual({ threads: ['github:7'], terms: [] })
+    expect(sources.find('#12', 'acme/widgets')).toEqual({ threads: ['github:acme/widgets#12'], terms: [] })
+    // A page URL names its repository itself, so a bare number is the only query that needs one.
+    expect(sources.find('https://github.com/acme/widgets/pull/7#issuecomment-3')).toEqual({ threads: ['github:acme/widgets#7'], terms: [] })
+    expect(sources.find('acme/widgets#7')).toEqual({ threads: ['github:acme/widgets#7'], terms: [] })
     expect(sources.find('see om_abc and om_abc, om_def')).toEqual({ threads: [], terms: ['om_abc', 'om_def'] })
     expect(sources.find('login fails')).toEqual({ threads: [], terms: [] })
     expect(feishuKind.policy!.unnamed).toEqual({ person: { zh: '飞书用户', en: 'Feishu user' }, bot: { zh: '飞书机器人', en: 'Feishu bot' } })

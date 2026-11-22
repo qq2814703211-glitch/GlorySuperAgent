@@ -1,13 +1,16 @@
 /**
- * Migrates a schema 10 database to schema 11 in a single transaction so runtime readers never convert legacy shapes.
- * Databases older than schema 10 are rejected: this version cannot migrate them.
+ * Migrates a schema 10 database to schema 12 in a single transaction so runtime readers never convert legacy shapes:
+ * schema 11 rewrites every stored record in its current shape, and schema 12 qualifies GitHub thread ids with their
+ * repository. Databases older than schema 10 are rejected: this version cannot migrate them.
  */
 import { basename } from 'node:path'
 import { z } from 'zod'
 import { isoTime, said, type AcceptMode, type AdmissionCell, type ChannelRef, type Decision, type Execution, type Follow, type MandateBasis,
-  type Reason, type Thread, type Ticket, type TicketInput, type TriggerDisposition } from '../core/index.ts'
+  type Reason, type Thread, type ThreadRef, type Ticket, type TicketInput, type Trigger, type TriggerDisposition } from '../core/index.ts'
 import { feishuChatLink } from '../sources/feishu-channel.ts'
 import { POLL_HORIZON_MS } from '../sources/poll.ts'
+import { repositoriesOf } from '../deployment.ts'
+import { repositoryOfThread, SOURCE } from '../sources/github-trigger.ts'
 import { SettingsSchema, policyVersion, type SettingsOrigin } from '../policy.ts'
 import { autoMergeThreshold, teamDefaults } from './context.ts'
 import { PromptConfigSchema, type PromptConfig, type PromptVersion } from './prompts.ts'
@@ -17,7 +20,7 @@ import type { SettingsVersion, Store } from './store.ts'
 import { Versions } from './versions.ts'
 import { KV, type Key } from '../kv.ts'
 
-export const SCHEMA_VERSION = 11
+export const SCHEMA_VERSION = 12
 /** The oldest database schema version this build can open and migrate directly. */
 export const OLDEST_SCHEMA = 10
 /** Returns an error message explaining why `version` cannot be opened: older schemas need a new state directory. */
@@ -575,23 +578,26 @@ function feishuThreadLinks(store: Store): void {
 function issueSourceRecords(store: Store): void {
   store.db.exec(`UPDATE trigger SET value = json_set(value, '$.source', 'github') WHERE value ->> '$.source' = 'github-issue'`)
   const pending = store.get('github-issue-pending' as Key<Record<string, { number: number; at: string }>>) ?? {}
-  const retries = { ...store.get(KV.github.retries) }
+  // A schema 10 database served one repository: its read positions belong to the primary one.
+  const repository = primaryRepository(store)
+  const retries = repository ? { ...store.get(KV.github.retries(repository)) } : {}
   for (const { number, at } of Object.values(pending)) {
     if (!(Date.now() - Date.parse(at) < POLL_HORIZON_MS)) continue
     const retry = retries[number]
     retries[number] = { ...retry, since: retry && retry.since < at ? retry.since : at, pr: retry?.pr ?? false }
   }
-  if (Object.keys(retries).length) store.set(KV.github.retries, retries)
+  if (repository && Object.keys(retries).length) store.set(KV.github.retries(repository), retries)
   const kept = ['github-issue-pending', 'github-issues-since', 'github-issues-started-at', ...store.keys('github-issue-eligibility:')]
   for (const name of kept) store.delete(name)
 }
-/** Consolidate per-issue/PR notification and thread subscription cursors into a single cursor holding the later timestamp. */
+/** Consolidate per-issue/PR notification and thread subscription cursors into a single cursor per Thread holding the later timestamp. */
 function githubCursors(store: Store): void {
+  const repository = primaryRepository(store)
   for (const name of [...store.keys('github-thread:'), ...store.keys('thread-since:github:')]) {
     const at = store.get<string>(name as Key<string>)
-    const cursor = KV.github.cursor(Number(name.slice(name.lastIndexOf(':') + 1)))
-    const current = store.get(cursor)
-    if (at && !(current && current >= at)) store.set(cursor, at)
+    const cursor = repository && KV.github.cursor(repository, Number(name.slice(name.lastIndexOf(':') + 1)))
+    const current = cursor ? store.get(cursor) : undefined
+    if (cursor && at && !(current && current >= at)) store.set(cursor, at)
     store.delete(name)
   }
 }
@@ -612,5 +618,64 @@ function assessmentTriggers(store: Store): void {
     if (!evaluation || evaluation.delivered || !evaluation.triggerIds[0]) continue
     store.db.prepare(`INSERT INTO effect (kind, key, value, seq, due, since) VALUES ('assessment', ?, ?, ?, ?, ?) ON CONFLICT(kind, key) DO NOTHING`)
       .run(evaluation.id, JSON.stringify({ triggerId: evaluation.triggerIds[0] }), ++seq, Date.now(), new Date().toISOString())
+  }
+}
+
+/** The repository the GitHub Source lists first; the one an unqualified thread id of an older database belongs to. */
+function primaryRepository(store: Pick<Store, 'settings'>): string | undefined {
+  const stored = store.settings().sources.github?.config.repository
+  return repositoriesOf(typeof stored === 'string' ? stored : '')[0]
+}
+/**
+ * Rewrites every GitHub thread id of a schema 11 database into its qualified form: `<owner>/<name>#<number>` for an Issue
+ * or pull request, `<owner>/<name>#ci:<branch>` for a branch's CI. Trigger and ticket ids keep theirs, because only thread
+ * ids change: a trigger that pointed at a number-only thread points at its repository's thread afterwards.
+ */
+export function migrateTo12(store: Store): void {
+  const repository = primaryRepository(store)
+  const qualify = (id: string): string => {
+    if (repositoryOfThread(id)) return id
+    if (!repository) throw new Error(`GitHub thread ${id} names no repository, and the GitHub Source's repository list is empty`)
+    return `${repository}#${id}`
+  }
+  /** Qualifies one Thread key (`github:<id>`); every other key stays as it is. */
+  const keyOf = (value: string): string => value.startsWith(`${SOURCE}:`)
+    ? `${SOURCE}:${qualify(value.slice(SOURCE.length + 1))}` : value
+  const refOf = (ref: ThreadRef): ThreadRef => ref.source === SOURCE ? { ...ref, id: qualify(ref.id) } : ref
+  for (const thread of store.threads.list()) {
+    const ref = refOf(thread.ref)
+    // Only a GitHub Thread's key changes: another Source's id stays what its Source wrote.
+    const key = ref.source === SOURCE ? `${SOURCE}:${ref.id}` : thread.key
+    if (key === thread.key) continue
+    if (store.threads.get(key)) throw new Error(`both ${thread.key} and ${key} exist; one of them is not a schema 11 thread id`)
+    store.db.prepare('DELETE FROM thread WHERE key=?').run(thread.key)
+    store.threads.save({ ...thread, key, ref, correlated: thread.correlated.map(keyOf),
+      ...thread.evaluating ? { evaluating: { ...thread.evaluating, threadKey: key } } : {} })
+  }
+  for (const row of store.db.prepare('SELECT id, value FROM trigger').all()) {
+    const trigger = JSON.parse(String(row.value)) as Trigger
+    const threads = trigger.threads.map(refOf)
+    if (threads.every((ref, index) => ref.id === trigger.threads[index]!.id)) continue
+    step(`trigger ${String(row.id)}`, () => { store.triggers.save({ ...trigger, threads }) })
+  }
+  for (const row of store.db.prepare('SELECT id, value FROM decision').all()) {
+    const decision = JSON.parse(String(row.value)) as Decision
+    const threadKey = keyOf(decision.threadKey)
+    if (threadKey === decision.threadKey) continue
+    store.decisions.save({ ...decision, threadKey })
+  }
+  for (const row of store.db.prepare('SELECT id, value FROM ticket').all()) {
+    const ticket = JSON.parse(String(row.value)) as Ticket
+    const follows = ticket.follows?.map(item => ({ ...item, thread: keyOf(item.thread) }))
+    const channels = ticket.channels.map(channel => channel.source === SOURCE ? { ...channel, thread: keyOf(channel.thread) } : channel)
+    const changed = follows?.some((item, index) => item.thread !== ticket.follows![index]!.thread) || channels.some((channel, index) => channel.thread !== ticket.channels[index]!.thread)
+    if (!changed) continue
+    step(`ticket ${String(row.id)}`, () => { store.tickets.save({ ...ticket, ...follows ? { follows } : {}, channels }) })
+  }
+  for (const row of store.db.prepare("SELECT id, value FROM outbox WHERE value ->> '$.channel.source' = 'github'").all()) {
+    const message = JSON.parse(String(row.value)) as { channel: ChannelRef }
+    const thread = keyOf(message.channel.thread)
+    if (thread === message.channel.thread) continue
+    store.db.prepare('UPDATE outbox SET value = ? WHERE id = ?').run(JSON.stringify({ ...message, channel: { ...message.channel, thread } }), String(row.id))
   }
 }

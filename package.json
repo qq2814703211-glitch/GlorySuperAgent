@@ -1,19 +1,26 @@
 {
-  "name": "dsh-superagent",
-  "author": "DeepSeek Harness Team <team@dsh.dev>",
+  "name": "glorysuperagent",
+  "repository": "github:qq2814703211-glitch/GlorySuperAgent",
+  "author": "GlorySuperAgent contributors",
+  "contributors": [
+    "DeepSeek Harness Team <team@dsh.dev>"
+  ],
   "license": "MIT",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "private": true,
-  "description": "A proactive agent for one GitHub repository, as a DSH (DeepSeek Harness) bundle: it listens to GitHub and optionally Feishu, evaluates requests under a Policy, turns authorized ones into Tickets, and executes each in its own DSH Session.",
+  "description": "GlorySuperAgent runs authorized coding requests from GitHub and chat in dedicated workspaces, standalone or inside DeepSeek Harness.",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
+  "bin": {
+    "glorysuperagent": "./scripts/glorysuperagent.mjs",
+    "superagent": "./scripts/glorysuperagent.mjs"
+  },
   "exports": {
     ".": {
       "types": "./lib/index.d.ts",
       "default": "./lib/index.js"
     },
-    "./client": "./lib/client.js",
     "./github-watch": "./lib/github-watch.js",
     "./feishu-watch": "./lib/feishu-watch.js",
     "./package.json": "./package.json",
@@ -21,6 +28,9 @@
   },
   "files": [
     "lib",
+    "desktop/dist",
+    "scripts/glorysuperagent.mjs",
+    "scripts/superagent.mjs",
     "cordis.patch.yml",
     "locale/*.json",
     "README.md",
@@ -31,17 +41,6 @@
     "bundle": {
       "patch": "./cordis.patch.yml"
     },
-    "client": {
-      "platform": "web",
-      "inject": [
-        "@deepseek-ai/dsh-client-locale",
-        "@deepseek-ai/dsh-client-ui-settings",
-        "@deepseek-ai/dsh-client-ui-renderer",
-        "@deepseek-ai/dsh-client-ui-layout",
-        "@deepseek-ai/dsh-client-ui-sidebar",
-        "@deepseek-ai/dsh-client-ui-workspace"
-      ]
-    },
     "manifestVersion": 1
   },
   "scripts": {
@@ -49,7 +48,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "check": "pnpm typecheck && pnpm test && pnpm build",
-    "start": "node scripts/superagent.mjs",
+    "start": "electron desktop/main.mjs",
+    "desktop:package": "pnpm ui:build && node desktop/package.mjs",
     "ui:dev": "vite --config desktop/vite.config.ts",
     "ui:build": "vite build --config desktop/vite.config.ts"
   },
@@ -61,6 +61,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.2",
     "proper-lockfile": "4.1.2",
+    "yaml": "2.9.1",
     "zod": "4.6.7"
   },
   "peerDependencies": {
@@ -114,13 +115,16 @@
     "@deepseek-ai/dsh-tools": "0.2.1-alpha.2",
     "@deepseek-ai/dsh-workspace": "0.2.1-alpha.2",
     "@deepseek-ai/schemastery": "3.18.5-alpha.1",
+    "@electron/packager": "20.3.0",
     "@types/jsdom": "28.0.3",
     "@types/node": "22.20.0",
     "@types/proper-lockfile": "4.1.4",
     "@types/react": "18.3.28",
     "@types/react-dom": "18.3.7",
     "@vitejs/plugin-react": "6.1.2",
+    "electron": "45.4.1",
     "jsdom": "29.1.1",
+    "playwright-core": "1.65.1",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "tsdown": "0.22.14",

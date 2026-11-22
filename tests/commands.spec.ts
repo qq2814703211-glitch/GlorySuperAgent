@@ -14,7 +14,7 @@ sources.register(feishuKind); sources.register(githubKind)
 const send = (commands: Commands, message: OutboundMessage) => sources.send(message, commands)
 const deployment = testDeployment({ github: { ...testDeployment().github, cli: '/path/agent-gh' } })
 const REPOSITORY = deployment.repository
-const reply = { id: 'stable-operation', channel: githubChannel(8), text: 'Done', kind: 'reply' as const }
+const reply = { id: 'stable-operation', channel: githubChannel(REPOSITORY, 8), text: 'Done', kind: 'reply' as const }
 describe('account-isolated operations', () => {
   it('uses the agent account\'s GitHub CLI and preserves literal shell metacharacters in argv', async () => {
     const commands = new Commands(() => deployment, {}, new AbortController().signal); const run = vi.spyOn(commands,'run').mockResolvedValue('{}')
@@ -33,24 +33,24 @@ describe('account-isolated operations', () => {
     await expect(new Commands(() => testDeployment({ feishu: undefined }), {}, new AbortController().signal).lark(['im', '+chat-list'])).rejects.toThrow('The Feishu Source has no working bot CLI')
   })
   it('reconciles an uncertain GitHub send with its stable marker', async () => {
-    const commands = new Commands(() => deployment, {}, new AbortController().signal)
+    const commands = new Commands(() => deployment, {}, new AbortController().signal, REPOSITORY)
     vi.spyOn(commands,'pages').mockResolvedValue([{ body:'<!-- dsh-superagent:stable-operation -->',user:{login:'agent-bot'} }])
     const gh = vi.spyOn(commands,'gh')
     await send(commands, reply); expect(gh).not.toHaveBeenCalled()
   })
   it('posts the reply as the model wrote it, only to the fixed repository', async () => {
-    const commands = new Commands(() => deployment, {}, new AbortController().signal); vi.spyOn(commands,'pages').mockResolvedValue([])
+    const commands = new Commands(() => deployment, {}, new AbortController().signal, REPOSITORY); vi.spyOn(commands,'pages').mockResolvedValue([])
     const gh = vi.spyOn(commands,'gh').mockResolvedValue({})
     await send(commands, reply)
     // The disclosure line is prompt text: the model writes it, and the host adds nothing.
     expect(gh).toHaveBeenCalledWith(['api',`repos/${REPOSITORY}/issues/8/comments`,'--method','POST','-f',expect.stringMatching(/^body=Done\n\n<!-- dsh-superagent:stable-operation -->$/)])
-    await expect(new Commands(() => deployment, {}, new AbortController().signal).pages(z.unknown(),
+    await expect(new Commands(() => deployment, {}, new AbortController().signal).forRepository(REPOSITORY).pages(z.unknown(),
       '../../someone/else/issues')).rejects.toThrow()
   })
   it('routes review-comment replies to the root review comment', async () => {
-    const commands = new Commands(() => deployment, {}, new AbortController().signal); vi.spyOn(commands,'pages').mockResolvedValue([])
+    const commands = new Commands(() => deployment, {}, new AbortController().signal, REPOSITORY); vi.spyOn(commands,'pages').mockResolvedValue([])
     const gh = vi.spyOn(commands,'gh').mockResolvedValueOnce({ id: 7, in_reply_to_id: 3 }).mockResolvedValueOnce({})
-    await send(commands, { ...reply, channel: githubChannel(8, `https://github.com/${REPOSITORY}/pull/8#discussion_r7`) })
+    await send(commands, { ...reply, channel: githubChannel(REPOSITORY, 8, `https://github.com/${REPOSITORY}/pull/8#discussion_r7`) })
     expect(gh.mock.calls[1]![0]).toEqual(['api', `repos/${REPOSITORY}/pulls/8/comments/3/replies`, '--method', 'POST', '-f', expect.stringContaining('Done')])
   })
   it('uses Feishu bot identity and one idempotency key on retries', async () => {
@@ -66,7 +66,7 @@ it('reports Feishu failures with their code and without command arguments', () =
   expect(commandError({stderr:JSON.stringify({error:{code:999,message:'scope missing'}})}).message).toBe('scope missing (999)')
 })
 describe('Channels', () => {
-  const commands = () => new Commands(() => deployment, {}, new AbortController().signal)
+  const commands = () => new Commands(() => deployment, {}, new AbortController().signal, REPOSITORY)
   const feishu = { ...reply, channel: feishuChannel('oc_1', 'om_1') }
   const lark = (code: number, message: string) => commandError({ stderr: JSON.stringify({ error: { code, message } }), code: 1 })
   it('drop a Feishu reply to a recalled message or one Feishu no longer finds, and say how to add the bot to a chat', async () => {
@@ -108,19 +108,20 @@ describe('Channels', () => {
     const pages = vi.spyOn(value, 'pages').mockResolvedValue([])
     const gh = vi.spyOn(value, 'gh')
       .mockRejectedValueOnce(commandError({ stderr: 'gh: Not Found (HTTP 404)', code: 1 })).mockResolvedValueOnce({})
-    expect(await send(value, { ...reply, channel: githubChannel(8, `https://github.com/${REPOSITORY}/pull/8#discussion_r7`) })).toBe('sent')
+    expect(await send(value, { ...reply, channel: githubChannel(REPOSITORY, 8, `https://github.com/${REPOSITORY}/pull/8#discussion_r7`) })).toBe('sent')
     expect((pages.mock.calls[0] as unknown[])[1]).toBe('issues/8/comments')
     const post = ['api', `repos/${REPOSITORY}/issues/8/comments`, '--method', 'POST', '-f', expect.stringContaining('Done')]
     expect(gh.mock.calls[1]![0]).toEqual(post)
   })
   it('link each address to its page with its label', () => {
     const links = { repository: REPOSITORY, feishu: deployment.feishu! }
-    expect(githubKind.channel!.link(githubChannel(8).address, links)).toEqual({ url: `https://github.com/${REPOSITORY}/issues/8`,
+    expect(githubKind.channel!.link(githubChannel(REPOSITORY, 8).address, links)).toEqual({ url: `https://github.com/${REPOSITORY}/issues/8`,
       label: { zh: 'GitHub #8', en: 'GitHub #8' } })
     const review = `https://github.com/${REPOSITORY}/pull/8#discussion_r7`
-    expect(githubKind.channel!.link(githubChannel(8, review).address, links))
+    expect(githubKind.channel!.link(githubChannel(REPOSITORY, 8, review).address, links))
       .toEqual({ url: review, label: { zh: 'GitHub #8 的 review 讨论', en: 'Review discussion on GitHub #8' } })
-    expect(githubKind.channel!.link(githubChannel(8).address, {}).url).toBe('')
+    // An address from before schema 12 names no repository, so without deployment links there is no page to show.
+    expect(githubKind.channel!.link({ number: '8' }, {}).url).toBe('')
     const message = feishuChannel('oc_1', 'om_1').address
     expect(feishuKind.channel!.link(message, links)).toEqual({ url: 'https://applink.feishu.cn/client/chat/open?openChatId=oc_1',
       label: { zh: '飞书消息', en: 'Feishu message' }, triggerId: key('feishu', 'om_1') })
@@ -128,8 +129,8 @@ describe('Channels', () => {
 })
 
 describe('GitHub calls', () => {
-  const commands = () => new Commands(() => deployment, {}, new AbortController().signal)
-  it('go only to paths inside the configured repository, and validate what GitHub answers', async () => {
+  const commands = () => new Commands(() => deployment, {}, new AbortController().signal, REPOSITORY)
+  it('go only to paths inside the bound repository, and validate what GitHub answers', async () => {
     const value = commands()
     const run = vi.spyOn(value, 'run').mockResolvedValue('{"number":12,"title":"Login fails","extra":true}')
     expect(await value.api(z.looseObject({ number: z.number() }), 'issues/12')).toEqual({ number: 12, title: 'Login fails', extra: true })

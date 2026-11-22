@@ -1,15 +1,39 @@
 /** The standalone host: the engine, the management server and the Sources in one plain Node process. */
-import { mkdtempSync, rmSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { copyFileSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, expect, it } from 'vitest'
-import { startStandalone, type Standalone } from '../src/standalone.ts'
+import { readHarnessTable, startStandalone, type Standalone } from '../src/standalone.ts'
 import { startNodeHttp } from '../src/host/http.ts'
 import { nodeSubprocess, scrubbedEnv } from '../src/host/subprocess.ts'
 import { EmptyRunner, NO_AGENT_CLI } from '../src/host/runner.ts'
 
 let running: Standalone | undefined
 afterEach(async () => { await running?.stop(); running = undefined })
+
+it('shows its CLI options from the headless launcher before building', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'standalone cli '))
+  try {
+    for (const script of ['glorysuperagent.mjs', 'router-cli.mjs']) {
+      copyFileSync(new URL(`../scripts/${script}`, import.meta.url), join(directory, script))
+    }
+    const help = (script: string) => execFileSync(process.execPath, [join(directory, script), '--help'], { encoding: 'utf8' })
+    expect(help('glorysuperagent.mjs')).toMatch(/^Usage: glorysuperagent /)
+  } finally { rmSync(directory, { recursive: true, force: true }) }
+})
+
+it('resolves bundled worker adapters from the harness table after moving a checkout', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'renamed checkout '))
+  try {
+    const file = join(directory, 'harnesses.json')
+    copyFileSync(new URL('../harnesses.json', import.meta.url), file)
+    const { harnesses } = readHarnessTable(file)
+    expect(harnesses?.codex?.args).toEqual([join(directory, 'adapters', 'codex.mjs')])
+    expect(harnesses?.codex?.readable).toContain(join(directory, 'adapters'))
+    expect(harnesses?.claude?.command).toBe('claude')
+  } finally { rmSync(directory, { recursive: true, force: true }) }
+})
 
 /** Starts the standalone host in a throwaway state directory. */
 async function start(stateDir: string): Promise<Standalone> {
