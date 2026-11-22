@@ -78,6 +78,12 @@ one entry per harness with `command`, `args`, `model`, `effort`, `readable` and 
 the host's seatbelt denies the home directory, so a CLI's own install and state have to be named or a working CLI turns
 into a turn that dies on `EACCES`.
 
+A Hermes router entry needs three things named besides its own data root: the CLI checkout (`~/.hermes/hermes-agent`),
+the managed tool tree (`~/.hermes/tools` — launch-time PM activation reads it, and a refused read is reported as
+`Gateway draining: update_paused`, not as a permissions error), and the prepared data root in **both** `readable` and
+`state`. The data root has to sit outside the host's state directory: the seatbelt denies that directory after the
+allow rules, and the last match wins, so anything under it stays unreadable however it is listed.
+
 **The router is not the commander.** It is the gatekeeper that reads untrusted text: one turn, no memory, no built-in
 tool, one repository. The commander is the operator's agent, which decides what to dispatch and to whom — and the harness
 marker is how that decision reaches the pipeline.
