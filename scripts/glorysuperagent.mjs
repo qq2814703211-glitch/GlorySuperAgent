@@ -9,6 +9,7 @@
  * loopback interface; the panel token in the state directory authorizes it.
  */
 import { spawn } from 'node:child_process'
+import { routerCli } from './router-cli.mjs'
 
 /** Reads the command's options; each has a default and an environment variable. */
 function options(argv) {
@@ -46,21 +47,11 @@ const harnessTable = harnessFile ? readHarnessTable(harnessFile) : undefined
 const stateDir = values.stateDir ?? process.env.SUPERAGENT_STATE_DIR
 const port = values.port ?? (process.env.SUPERAGENT_PORT ? Number(process.env.SUPERAGENT_PORT) : undefined)
 /** The router entry of the harness file: the CLI that reads text from strangers, and the model it answers with. */
-const routerEntry = harnessTable?.router
-const cli = values.cli ?? process.env.SUPERAGENT_CLI ?? routerEntry?.command
-const cliModel = values.cliModel ?? process.env.SUPERAGENT_CLI_MODEL ?? routerEntry?.model
+const cli = routerCli(harnessTable, values.cli ?? process.env.SUPERAGENT_CLI,
+  values.cliModel ?? process.env.SUPERAGENT_CLI_MODEL)
 const workerCli = values.workerCli ?? process.env.SUPERAGENT_WORKER_CLI
 const defaultHarness = values.defaultHarness ?? process.env.SUPERAGENT_DEFAULT_HARNESS ?? harnessTable?.default
 const workerCliModel = values.workerCliModel ?? process.env.SUPERAGENT_WORKER_CLI_MODEL
-/** The router's CLI config: the command, the adapter's arguments and the paths the adapter needs are all the table's. */
-const routerCli = cli ? {
-  command: cli,
-  ...routerEntry?.args ? { args: routerEntry.args } : {},
-  ...cliModel ? { model: cliModel } : {},
-  ...routerEntry?.effort ? { effort: routerEntry.effort } : {},
-  ...routerEntry?.readable ? { readable: routerEntry.readable } : {},
-  ...routerEntry?.state ? { state: routerEntry.state } : {},
-} : undefined
 /** The default port, which keeps the panel's address the same from one start to the next. */
 const DEFAULT_PORT = 3082
 const start = port => startStandalone({
@@ -68,7 +59,7 @@ const start = port => startStandalone({
   port,
   ...values.sandbox ?? process.env.SUPERAGENT_SANDBOX ? { sandbox: values.sandbox ?? process.env.SUPERAGENT_SANDBOX } : {},
   ...values.readable || values.writable ? { sandboxExtras: { readable: values.readable ?? [], writable: values.writable ?? [] } } : {},
-  ...routerCli ? { cli: routerCli } : {},
+  ...cli ? { cli } : {},
   ...workerCli ? { workerCli: { command: workerCli, ...workerCliModel ? { model: workerCliModel } : {} } } : {},
   ...harnessTable?.harnesses ? { harnesses: harnessTable.harnesses } : {},
   ...defaultHarness ? { defaultHarness } : {},
@@ -82,7 +73,7 @@ catch (error) {
 }
 const url = `http://127.0.0.1:${host.host.http.port}/`
 console.log(`GlorySuperAgent is running. Open the panel at ${url}`)
-console.log(`the agent CLI is ${cli ?? 'not configured; a ticket that needs an agent will fail'}`)
+console.log(`the agent CLI is ${cli?.command ?? 'not configured; a ticket that needs an agent will fail'}`)
 if (workerCli) console.log(`the worker CLI is ${workerCli}`)
 if (harnessTable?.harnesses) console.log(`harnesses: ${Object.keys(harnessTable.harnesses).join(', ')}; default ${defaultHarness ?? 'none'}`)
 if (!values.noOpen && !process.env.CI) {

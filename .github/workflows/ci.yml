@@ -42,6 +42,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       # `pnpm check` is the typecheck, the full test suite and the build.
       - run: pnpm check
+      - name: Hermes router adapter contract
+        run: node --test adapters/test/hermes.test.mjs
       # The attack chain is the reason this project exists: run it again under its own name, so a regression names itself in the
       # job rather than hiding among 1,200 other tests.
       - name: Attack-chain regression gate
