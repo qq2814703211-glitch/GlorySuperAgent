@@ -3,4 +3,4 @@ set -euo pipefail
 cd "$(dirname "$0")"
 pnpm install --frozen-lockfile
 pnpm build
-exec pnpm start "$@"
+exec pnpm start --cli "${SUPERAGENT_CLI:-claude}" "$@"

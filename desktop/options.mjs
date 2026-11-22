@@ -26,26 +26,25 @@ function options(argv) {
 
 /** A JSON file of harness entries: `{ router?, default, harnesses: { name: { command, args?, model?, effort?, readable?, state? } } }`. */
 export function hostOptions(argv) {
-const values = options(argv)
-const harnessFile = values.harnesses ?? process.env.SUPERAGENT_HARNESSES
-const harnessTable = harnessFile ? JSON.parse(readFileSync(harnessFile, 'utf8')) : undefined
-const stateDir = values.stateDir ?? process.env.SUPERAGENT_STATE_DIR
-const port = values.port ?? (process.env.SUPERAGENT_PORT ? Number(process.env.SUPERAGENT_PORT) : undefined)
-/** The router entry of the harness file: the CLI that reads text from strangers, and the model it answers with. */
-const routerEntry = harnessTable?.router
-const cli = values.cli ?? process.env.SUPERAGENT_CLI ?? routerEntry?.command
-const cliModel = values.cliModel ?? process.env.SUPERAGENT_CLI_MODEL ?? routerEntry?.model
-const workerCli = values.workerCli ?? process.env.SUPERAGENT_WORKER_CLI
-const defaultHarness = values.defaultHarness ?? process.env.SUPERAGENT_DEFAULT_HARNESS ?? harnessTable?.default
-const workerCliModel = values.workerCliModel ?? process.env.SUPERAGENT_WORKER_CLI_MODEL
-return {
-  ...stateDir ? { stateDir } : {},
-  port: port ?? 0,
-  ...values.sandbox ?? process.env.SUPERAGENT_SANDBOX ? { sandbox: values.sandbox ?? process.env.SUPERAGENT_SANDBOX } : {},
-  ...values.readable || values.writable ? { sandboxExtras: { readable: values.readable ?? [], writable: values.writable ?? [] } } : {},
-  ...cli ? { cli: { command: cli, ...cliModel ? { model: cliModel } : {} } } : {},
-  ...workerCli ? { workerCli: { command: workerCli, ...workerCliModel ? { model: workerCliModel } : {} } } : {},
-  ...harnessTable?.harnesses ? { harnesses: harnessTable.harnesses } : {},
-  ...defaultHarness ? { defaultHarness } : {},
-}
+  const values = options(argv)
+  const harnessFile = values.harnesses ?? process.env.SUPERAGENT_HARNESSES
+  const harnessTable = harnessFile ? JSON.parse(readFileSync(harnessFile, 'utf8')) : undefined
+  const stateDir = values.stateDir ?? process.env.SUPERAGENT_STATE_DIR
+  const port = values.port ?? (process.env.SUPERAGENT_PORT ? Number(process.env.SUPERAGENT_PORT) : undefined)
+  const routerEntry = harnessTable?.router
+  const cli = values.cli ?? process.env.SUPERAGENT_CLI ?? routerEntry?.command
+  const cliModel = values.cliModel ?? process.env.SUPERAGENT_CLI_MODEL ?? routerEntry?.model
+  const workerCli = values.workerCli ?? process.env.SUPERAGENT_WORKER_CLI
+  const defaultHarness = values.defaultHarness ?? process.env.SUPERAGENT_DEFAULT_HARNESS ?? harnessTable?.default
+  const workerCliModel = values.workerCliModel ?? process.env.SUPERAGENT_WORKER_CLI_MODEL
+  const sandbox = values.sandbox ?? process.env.SUPERAGENT_SANDBOX
+  return {
+    ...stateDir ? { stateDir } : {}, port: port ?? 0,
+    ...sandbox ? { sandbox } : {},
+    ...values.readable || values.writable ? { sandboxExtras: { readable: values.readable ?? [], writable: values.writable ?? [] } } : {},
+    ...cli ? { cli: { command: cli, ...cliModel ? { model: cliModel } : {} } } : {},
+    ...workerCli ? { workerCli: { command: workerCli, ...workerCliModel ? { model: workerCliModel } : {} } } : {},
+    ...harnessTable?.harnesses ? { harnesses: harnessTable.harnesses } : {},
+    ...defaultHarness ? { defaultHarness } : {},
+  }
 }
