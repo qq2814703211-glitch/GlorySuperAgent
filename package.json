@@ -1,5 +1,6 @@
 {
   "name": "glorysuperagent",
+  "repository": "github:qq2814703211-glitch/GlorySuperAgent",
   "author": "GlorySuperAgent contributors",
   "contributors": ["DeepSeek Harness Team <team@dsh.dev>"],
   "license": "MIT",
@@ -9,6 +10,10 @@
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
+  "bin": {
+    "glorysuperagent": "./scripts/glorysuperagent.mjs",
+    "superagent": "./scripts/glorysuperagent.mjs"
+  },
   "exports": {
     ".": {
       "types": "./lib/index.d.ts",
@@ -22,6 +27,9 @@
   },
   "files": [
     "lib",
+    "desktop/dist",
+    "scripts/glorysuperagent.mjs",
+    "scripts/superagent.mjs",
     "cordis.patch.yml",
     "locale/*.json",
     "README.md",
@@ -50,7 +58,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "check": "pnpm typecheck && pnpm test && pnpm build",
-    "start": "node scripts/superagent.mjs",
+    "start": "node scripts/glorysuperagent.mjs",
     "ui:dev": "vite --config desktop/vite.config.ts",
     "ui:build": "vite build --config desktop/vite.config.ts"
   },

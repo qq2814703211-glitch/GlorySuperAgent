@@ -21,4 +21,4 @@ fi
 # SUPERAGENT_CLI=claude turns the agent side on; without it the panel and Sources run and tickets fail visibly.
 # The router runs Claude Code (the only CLI that can prove a turn holds no built-in tool); workers run whatever the
 # ticket names in harnesses.json, and a ticket that names none runs its default.
-exec node scripts/superagent.mjs --harnesses "$PWD/harnesses.json" --cli claude "$@"
+exec node scripts/glorysuperagent.mjs --harnesses "$PWD/harnesses.json" --cli claude "$@"

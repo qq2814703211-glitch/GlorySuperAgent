@@ -203,11 +203,6 @@ Only in a disposable environment, with a throwaway GitHub account, a private tes
 
 ```bash
 git clone https://github.com/qq2814703211-glitch/GlorySuperAgent.git
-```
-
-Until the GitHub repository rename takes effect, use `git clone https://github.com/qq2814703211-glitch/super-agent-2.git GlorySuperAgent` instead. Existing checkouts can keep their directory name.
-
-```bash
 cd GlorySuperAgent && pnpm install && pnpm check
 ```
 
@@ -216,6 +211,8 @@ cd GlorySuperAgent && pnpm install && pnpm check
 ```bash
 pnpm build && pnpm start --cli claude
 ```
+
+The standalone CLI is `glorysuperagent`. From a checkout, run `node scripts/glorysuperagent.mjs --help`; `pnpm start` and `node scripts/superagent.mjs` still work. Both names use the same settings and ticket history.
 
 It opens the panel at http://127.0.0.1:3082 (another free port when that one is taken; `--port` picks one, `--no-open` keeps the browser closed). There you add the repository and the agent's GitHub account in Settings, and the host checks them and starts. The state directory (by default `~/.superagent`) holds the database, the worker shims and the panel token; `--state-dir` moves it. The page the host serves carries the token, so there is no sign-in.
 

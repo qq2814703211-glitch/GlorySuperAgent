@@ -1,4 +1,5 @@
 /** The standalone host: the engine, the management server and the Sources in one plain Node process. */
+import { execFileSync } from 'node:child_process'
 import { copyFileSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -10,6 +11,19 @@ import { EmptyRunner, NO_AGENT_CLI } from '../src/host/runner.ts'
 
 let running: Standalone | undefined
 afterEach(async () => { await running?.stop(); running = undefined })
+
+it('shows the same CLI options from the renamed launcher and its legacy entry point before building', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'standalone cli '))
+  try {
+    for (const script of ['glorysuperagent.mjs', 'superagent.mjs']) {
+      copyFileSync(new URL(`../scripts/${script}`, import.meta.url), join(directory, script))
+    }
+    const help = (script: string) => execFileSync(process.execPath, [join(directory, script), '--help'], { encoding: 'utf8' })
+    const canonical = help('glorysuperagent.mjs')
+    expect(canonical).toMatch(/^Usage: glorysuperagent /)
+    expect(help('superagent.mjs')).toBe(canonical)
+  } finally { rmSync(directory, { recursive: true, force: true }) }
+})
 
 it('resolves bundled worker adapters from the harness table after moving a checkout', () => {
   const directory = mkdtempSync(join(tmpdir(), 'renamed checkout '))
