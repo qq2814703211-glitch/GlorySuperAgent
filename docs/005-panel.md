@@ -1,6 +1,6 @@
 # 005 Panel
 
-Open **GlorySuperAgent** in the DeepSeek Harness Web sidebar to supervise the agent. The panel prioritizes work that needs a person, then system health and history. This document builds on [000 Philosophy](000-philosophy.md) through [004 Prompts](004-prompts.md).
+Start the **GlorySuperAgent** desktop app (`pnpm start`) to supervise the agent. The desktop window is the only surface; the browser client was removed in 0.0.1. The panel prioritizes work that needs a person, then system health and history. This document builds on [000 Philosophy](000-philosophy.md) through [004 Prompts](004-prompts.md).
 
 ## Three questions
 

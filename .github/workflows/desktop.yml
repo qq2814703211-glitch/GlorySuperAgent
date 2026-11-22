@@ -30,9 +30,9 @@ jobs:
           baseline=.artifacts/baseline
           if test -f "$baseline/scripts/superagent.mjs"; then
             (cd "$baseline" && pnpm install --frozen-lockfile && pnpm build)
-            node desktop/smoke.mjs .artifacts/desktop/Superagent-darwin-*/Superagent.app/Contents/MacOS/Superagent "$baseline"
+            node desktop/smoke.mjs .artifacts/desktop/GlorySuperAgent-darwin-*/GlorySuperAgent.app/Contents/MacOS/GlorySuperAgent "$baseline"
           else
-            node desktop/smoke.mjs .artifacts/desktop/Superagent-darwin-*/Superagent.app/Contents/MacOS/Superagent
+            node desktop/smoke.mjs .artifacts/desktop/GlorySuperAgent-darwin-*/GlorySuperAgent.app/Contents/MacOS/GlorySuperAgent
           fi
       - uses: actions/upload-artifact@v4
         if: runner.os == 'macOS'
@@ -41,19 +41,19 @@ jobs:
           path: .artifacts/comparison/*.png
       - name: Archive Mac app with executable modes and symlinks
         if: runner.os == 'macOS'
-        run: ditto -c -k --keepParent .artifacts/desktop/Superagent-darwin-*/Superagent.app .artifacts/Superagent-mac.zip
+        run: ditto -c -k --keepParent .artifacts/desktop/GlorySuperAgent-darwin-*/GlorySuperAgent.app .artifacts/GlorySuperAgent-mac.zip
       - name: Archive Linux app with executable modes and symlinks
         if: runner.os == 'Linux'
-        run: tar -C .artifacts/desktop -czf .artifacts/Superagent-linux.tar.gz Superagent-linux-x64
+        run: tar -C .artifacts/desktop -czf .artifacts/GlorySuperAgent-linux.tar.gz GlorySuperAgent-linux-x64
       - name: Archive Windows app
         if: runner.os == 'Windows'
-        run: Compress-Archive -Path .artifacts/desktop/Superagent-win32-x64 -DestinationPath .artifacts/Superagent-windows.zip
+        run: Compress-Archive -Path .artifacts/desktop/GlorySuperAgent-win32-x64 -DestinationPath .artifacts/GlorySuperAgent-windows.zip
       - uses: actions/upload-artifact@v4
         with:
-          name: Superagent-${{ runner.os }}-${{ runner.arch }}
+          name: GlorySuperAgent-${{ runner.os }}-${{ runner.arch }}
           path: |
-            .artifacts/Superagent-mac.zip
-            .artifacts/Superagent-windows.zip
-            .artifacts/Superagent-linux.tar.gz
+            .artifacts/GlorySuperAgent-mac.zip
+            .artifacts/GlorySuperAgent-windows.zip
+            .artifacts/GlorySuperAgent-linux.tar.gz
           include-hidden-files: true
           if-no-files-found: error

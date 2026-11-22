@@ -19,7 +19,7 @@ async function capture(page, name) {
   await page.locator('.dt-stat-value').first().waitFor()
   await page.screenshot({ path: join(output, `${name}.png`), scale: 'css' })
   if (process.platform === 'darwin') {
-    const owner = name === 'before' ? 'Google Chrome' : 'Superagent'
+    const owner = name === 'before' ? 'Google Chrome' : 'GlorySuperAgent'
     try {
       const id = execFileSync('swift', ['desktop/window-id.swift', owner], { encoding: 'utf8' }).trim()
       if (/^\d+$/.test(id)) execFileSync('screencapture', ['-x', '-o', '-l', id, join(output, `${name}-window.png`)])

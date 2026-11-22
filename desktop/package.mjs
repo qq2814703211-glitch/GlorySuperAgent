@@ -15,7 +15,7 @@ try {
     await cp(asset, join(dir, asset), { recursive: true })
   }
   await writeFile(join(dir, 'package.json'), JSON.stringify({ name: manifest.name, version: manifest.version,
-    type: 'module', main: 'desktop/main.mjs', productName: 'Superagent' }))
-  await packager({ dir, out, name: 'Superagent', appBundleId: 'org.superagent.desktop',
+    type: 'module', main: 'desktop/main.mjs', productName: 'GlorySuperAgent' }))
+  await packager({ dir, out, name: 'GlorySuperAgent', appBundleId: 'org.glorysuperagent.desktop',
     electronVersion: manifest.devDependencies.electron, asar: true, prune: false, overwrite: true })
 } finally { await rm(dir, { recursive: true, force: true }) }

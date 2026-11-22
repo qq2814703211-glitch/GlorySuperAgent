@@ -1,96 +1,61 @@
-/* Design tokens for the standalone panel. `src/client/client.css` was written against DSH's `--dsw-alias-*` variables; this file defines them. */
+/* Design tokens for the standalone panel, in xAI's design language: a near-black canvas, white ink,
+   hairline borders, a white pill as the only filled control, and a tracked monospace caption face.
+   `src/client/client.css` is written against these `--dsw-alias-*` variables. */
 :root {
-  color-scheme: light dark;
-  --dsw-alias-bg-base: #f5f6f8;
-  --dsw-alias-bg-module-platform: #ffffff;
-  --dsw-alias-bg-layer-1: #ffffff;
-  --dsw-alias-bg-layer-2: #f2f3f6;
-  --dsw-alias-bg-layer-3: #e8eaef;
-  --dsw-alias-bg-mask-1: rgba(14, 17, 24, 0.42);
+  color-scheme: dark;
 
-  --dsw-alias-label-primary: #14161b;
-  --dsw-alias-label-secondary: #444a55;
-  --dsw-alias-label-tertiary: #667080;
-  --dsw-alias-label-caption: #8791a1;
-  --dsw-alias-label-dimmed: #b4bbc7;
-  --dsw-alias-label-primary-foreground: #ffffff;
+  /* Surfaces: canvas #0a0a0a, one step up for cards, one more for hover and nested panels. */
+  --dsw-alias-bg-base: #0a0a0a;
+  --dsw-alias-bg-module-platform: #0a0a0a;
+  --dsw-alias-bg-layer-1: #101113;
+  --dsw-alias-bg-layer-2: #191919;
+  --dsw-alias-bg-layer-3: #1a1c20;
+  --dsw-alias-bg-mask-1: rgba(0, 0, 0, 0.72);
 
-  --dsw-alias-border-l2: rgba(20, 24, 33, 0.06);
-  --dsw-alias-border-l3: rgba(20, 24, 33, 0.12);
-  --dsw-alias-border-l4: rgba(20, 24, 33, 0.22);
+  /* Ink: pure white for primary, #dadbdf for body, #7d8187 for captions, #4a4d52 for disabled. */
+  --dsw-alias-label-primary: #ffffff;
+  --dsw-alias-label-secondary: #dadbdf;
+  --dsw-alias-label-tertiary: #a3a7ae;
+  --dsw-alias-label-caption: #7d8187;
+  --dsw-alias-label-dimmed: #4a4d52;
+  --dsw-alias-label-primary-foreground: #0a0a0a;
 
-  --dsw-alias-brand-primary: #3563e9;
-  --dsw-alias-button-primary-fill: #3563e9;
-  --dsw-alias-button-primary-hover: #2a52c8;
-  --dsw-alias-button-ghost-active-fill: rgba(53, 99, 233, 0.1);
-  --dsw-alias-button-ghost-active-border: rgba(53, 99, 233, 0.35);
-  --dsw-alias-link: #2a52c8;
+  /* Hairlines, not borders: 1px #212327 on dark, white at 25% where an outline must read as a control. */
+  --dsw-alias-border-l2: #16181b;
+  --dsw-alias-border-l3: #212327;
+  --dsw-alias-border-l4: rgba(255, 255, 255, 0.25);
 
-  --dsw-alias-interactive-bg-hover: rgba(20, 24, 33, 0.05);
-  --dsw-alias-interactive-bg-active: rgba(20, 24, 33, 0.09);
+  /* The brand is white. The only filled control is a white pill with black ink. */
+  --dsw-alias-brand-primary: #ffffff;
+  --dsw-alias-button-primary-fill: #ffffff;
+  --dsw-alias-button-primary-hover: #fafaf7;
+  --dsw-alias-button-ghost-active-fill: rgba(255, 255, 255, 0.08);
+  --dsw-alias-button-ghost-active-border: rgba(255, 255, 255, 0.25);
+  --dsw-alias-link: #ffffff;
 
-  --dsw-alias-state-success-primary: #1f9d57;
-  --dsw-alias-state-warn-primary: #c98400;
-  --dsw-alias-state-error-primary: #d3423f;
-  --dsw-alias-state-business-primary: #7357e8;
-  --dsw-alias-state-idle-primary: #8791a1;
+  --dsw-alias-interactive-bg-hover: rgba(255, 255, 255, 0.05);
+  --dsw-alias-interactive-bg-active: rgba(255, 255, 255, 0.09);
 
-  --dsw-alias-tooltip-bg: #1d212a;
-  --dsw-alias-toast-bg: #1d212a;
-  --dsw-static-neutral-bluish-00: #ffffff;
+  /* State colors are the only chromatic notes; the accent family is reserved for illustrations. */
+  --dsw-alias-state-success-primary: #8ee6a8;
+  --dsw-alias-state-warn-primary: #ffc285;
+  --dsw-alias-state-error-primary: #ff6b6b;
+  --dsw-alias-state-business-primary: #c4b5fd;
+  --dsw-alias-state-idle-primary: #7d8187;
 
-  --dsw-elevation-soft: 0 2px 8px rgba(14, 17, 24, 0.08);
-  --dsw-elevation-prominent: 0 14px 36px rgba(14, 17, 24, 0.16);
-  --dsw-shadow-lv3: 0 8px 24px rgba(14, 17, 24, 0.12);
-  --dsw-mask-blur: 6px;
+  --dsw-alias-tooltip-bg: #1a1c20;
+  --dsw-alias-toast-bg: #1a1c20;
+  --dsw-static-neutral-bluish-00: #0a0a0a;
+
+  /* No drop shadows: separation comes from hairline borders and one shade of surface. */
+  --dsw-elevation-soft: 0 0 0 1px #212327;
+  --dsw-elevation-prominent: 0 0 0 1px #212327;
+  --dsw-shadow-lv3: 0 0 0 1px #212327;
+  --dsw-mask-blur: 2px;
 
   --ds-font-family-code: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
+  --ds-font-family-ui: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
   --dsh-frame-top-clearance: 0px;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --dsw-alias-bg-base: #0f1115;
-    --dsw-alias-bg-module-platform: #15181e;
-    --dsw-alias-bg-layer-1: #1a1e26;
-    --dsw-alias-bg-layer-2: #20252e;
-    --dsw-alias-bg-layer-3: #2a303b;
-    --dsw-alias-bg-mask-1: rgba(0, 0, 0, 0.55);
-
-    --dsw-alias-label-primary: #eceef3;
-    --dsw-alias-label-secondary: #bcc2cd;
-    --dsw-alias-label-tertiary: #929aa8;
-    --dsw-alias-label-caption: #747d8c;
-    --dsw-alias-label-dimmed: #4d5563;
-    --dsw-alias-label-primary-foreground: #ffffff;
-
-    --dsw-alias-border-l2: rgba(255, 255, 255, 0.06);
-    --dsw-alias-border-l3: rgba(255, 255, 255, 0.12);
-    --dsw-alias-border-l4: rgba(255, 255, 255, 0.22);
-
-    --dsw-alias-brand-primary: #6c8ff5;
-    --dsw-alias-button-primary-fill: #4a73ee;
-    --dsw-alias-button-primary-hover: #5f84f2;
-    --dsw-alias-button-ghost-active-fill: rgba(108, 143, 245, 0.16);
-    --dsw-alias-button-ghost-active-border: rgba(108, 143, 245, 0.4);
-    --dsw-alias-link: #8aa6f7;
-
-    --dsw-alias-interactive-bg-hover: rgba(255, 255, 255, 0.06);
-    --dsw-alias-interactive-bg-active: rgba(255, 255, 255, 0.1);
-
-    --dsw-alias-state-success-primary: #3fc77f;
-    --dsw-alias-state-warn-primary: #e5a423;
-    --dsw-alias-state-error-primary: #f0605c;
-    --dsw-alias-state-business-primary: #9a82f5;
-    --dsw-alias-state-idle-primary: #747d8c;
-
-    --dsw-alias-tooltip-bg: #2a303b;
-    --dsw-alias-toast-bg: #2a303b;
-
-    --dsw-elevation-soft: 0 2px 8px rgba(0, 0, 0, 0.4);
-    --dsw-elevation-prominent: 0 14px 36px rgba(0, 0, 0, 0.55);
-    --dsw-shadow-lv3: 0 8px 24px rgba(0, 0, 0, 0.5);
-  }
 }
 
 * { box-sizing: border-box; }
@@ -98,7 +63,9 @@ html, body, #root { height: 100%; margin: 0; }
 body {
   background: var(--dsw-alias-bg-module-platform);
   color: var(--dsw-alias-label-primary);
-  font: 14px/20px -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font: 14px/20px var(--ds-font-family-ui);
+  letter-spacing: -0.005em;
   -webkit-font-smoothing: antialiased;
 }
 button, input, select, textarea { font: inherit; }
+::selection { background: #ffffff; color: #0a0a0a; }

@@ -29,7 +29,7 @@ else {
     })
     panel.setPermissionRequestHandler((_contents, _permission, done) => done(false))
     panel.setPermissionCheckHandler(() => false)
-    window = new BrowserWindow({ width: 1100, height: 720, useContentSize: true, title: 'Superagent',
+    window = new BrowserWindow({ width: 1100, height: 720, useContentSize: true, title: 'GlorySuperAgent',
       webPreferences: { session: panel, sandbox: true, nodeIntegration: false, contextIsolation: true } })
     window.webContents.setWindowOpenHandler(({ url }) => {
       if (new URL(url).protocol === 'https:') void shell.openExternal(url).catch(console.error)
@@ -37,5 +37,5 @@ else {
     })
     window.webContents.on('will-navigate', event => { if (new URL(event.url).origin !== origin) event.preventDefault() })
     await window.loadURL(origin)
-  }).catch(error => { dialog.showErrorBox('Superagent could not start', error.message); app.quit() })
+  }).catch(error => { dialog.showErrorBox('GlorySuperAgent could not start', error.message); app.quit() })
 }

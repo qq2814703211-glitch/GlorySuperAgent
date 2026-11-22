@@ -18,7 +18,7 @@ function options(argv) {
     else if (argument === '--allow-read') (values.readable ??= []).push(argv[++index])
     else if (argument === '--allow-write') (values.writable ??= []).push(argv[++index])
     else if (argument === '--help' || argument === '-h') {
-      console.log('Usage: Superagent [--state-dir DIR] [--port N] [--cli COMMAND] [--cli-model MODEL] [--sandbox auto|seatbelt|bubblewrap|off] [--allow-read PATH] [--allow-write PATH]')
+      console.log('Usage: GlorySuperAgent [--state-dir DIR] [--port N] [--cli COMMAND] [--cli-model MODEL] [--sandbox auto|seatbelt|bubblewrap|off] [--allow-read PATH] [--allow-write PATH]')
       process.exit(0)
     } else throw new Error(`Unknown option: ${argument}`)
   }
