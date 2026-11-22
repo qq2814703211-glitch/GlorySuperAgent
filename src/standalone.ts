@@ -34,6 +34,7 @@ export interface StandaloneOptions {
   readonly port?: number
   /** Where the built panel is; defaults to `desktop/dist` of this installation. */
   readonly panelDirectory?: string
+  readonly windowKey?: string
   /** The coding-agent CLI the agent side runs; without one, no agent can run. */
   readonly cli?: CliConfig
   /** The CLI that runs workers, when it differs from the router's; `adapters/` holds ones that speak the contract. */
@@ -150,7 +151,13 @@ export async function startStandalone(options: StandaloneOptions = {}): Promise<
   mkdirSync(stateDir, { recursive: true, mode: 0o700 })
   const host = await startNodeHost({ stateDir, limits: machine, ...options.port === undefined ? {} : { port: options.port }, restart })
   // The panel is part of the host: one process, one address.
-  host.http.fallback(panelHandler({ directory: options.panelDirectory ?? panelDirectory(), port: () => host.http.port, token: () => panelToken(stateDir) }))
+  const panel = panelHandler({ directory: options.panelDirectory ?? panelDirectory(), port: () => host.http.port, token: () => panelToken(stateDir) })
+  host.http.fallback((req, res) => {
+    if (options.windowKey && req.headers['x-superagent-window'] !== options.windowKey) {
+      res.writeHead(403); res.end(); return
+    }
+    panel(req, res)
+  })
   const build = async (): Promise<void> => {
     await runtime?.stop()
     for (const stop of sources) await stop()

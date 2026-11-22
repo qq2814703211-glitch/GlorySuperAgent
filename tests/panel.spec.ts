@@ -15,7 +15,7 @@ afterEach(async () => {
 })
 
 /** Starts the host with a small panel build, so the test does not depend on the real one. */
-async function start(): Promise<{ host: Standalone; base: string; port: number }> {
+async function start(windowKey?: string): Promise<{ host: Standalone; base: string; port: number }> {
   const root = mkdtempSync(join(tmpdir(), 'superagent-panel-'))
   directories.push(root)
   const panel = join(root, 'panel')
@@ -23,7 +23,7 @@ async function start(): Promise<{ host: Standalone; base: string; port: number }
   writeFileSync(join(panel, 'index.html'), '<!doctype html><html><head><title>Superagent</title></head><body><div id="root"></div></body></html>')
   writeFileSync(join(panel, 'assets', 'app.js'), 'console.log(1)')
   writeFileSync(join(root, 'secret.txt'), 'OUTSIDE')
-  const host = running = await startStandalone({ stateDir: join(root, 'state'), port: 0, panelDirectory: panel })
+  const host = running = await startStandalone({ stateDir: join(root, 'state'), port: 0, panelDirectory: panel, ...windowKey ? { windowKey } : {} })
   const port = host.host.http.port
   return { host, base: `http://127.0.0.1:${port}`, port }
 }
@@ -49,6 +49,15 @@ it('serves the panel at the root, with the panel token in the page', async () =>
   expect(page).toContain('<div id="root">')
   expect(page).toContain(`<meta name="superagent-token" content="${host.runtime.panelToken}" />`)
   expect(response.headers.get('cache-control')).toBe('no-store')
+})
+
+it('only serves desktop HTML and assets to the owning window', async () => {
+  const { port } = await start('window-key')
+  for (const path of ['/', '/assets/app.js']) {
+    expect((await raw(port, path)).status).toBe(403)
+    expect((await raw(port, path, { 'x-superagent-window': 'different' })).status).toBe(403)
+    expect((await raw(port, path, { 'x-superagent-window': 'window-key' })).status).toBe(200)
+  }
 })
 
 it('lets the panel call the API with the token from its own page', async () => {

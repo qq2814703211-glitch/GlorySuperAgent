@@ -115,24 +115,18 @@ The application also runs as a plain Node process, with no DeepSeek software ins
 pnpm start --cli claude
 ```
 
-It serves the management API on the loopback interface and prints the port it chose. Everything else is the same: the same state directory, the same setup checks, the same Sources, the same panel.
+It opens the management panel in a desktop window. The API stays on loopback; opening the address in a browser does not open the panel. Quitting the app stops its host.
 
 | Option | Environment variable | Default |
 | --- | --- | --- |
-| `--state-dir DIR` | `SUPERAGENT_STATE_DIR` | `~/.dsh/state/superagent` |
+| `--state-dir DIR` | `SUPERAGENT_STATE_DIR` | `~/.superagent` (existing legacy directory reused) |
 | `--port N` | `SUPERAGENT_PORT` | a free port the operating system picks |
 | `--cli COMMAND` | `SUPERAGENT_CLI` | none, so no agent can run |
 | `--cli-model MODEL` | `SUPERAGENT_CLI_MODEL` | the CLI's own default model |
 
 The state directory holds the database, the worker shims, the isolated git configuration and the panel token. It is created with mode `0700` and the token with mode `0600`.
 
-The panel is served separately by the development server:
-
-```sh
-pnpm ui:dev
-```
-
-It forwards the API and adds the panel token itself, so the browser never holds it. `SUPERAGENT_API` and `SUPERAGENT_TOKEN_FILE` point it elsewhere.
+To build a distributable app for the current platform, run `pnpm desktop:package`. See the README for package locations and platform limitations.
 
 **The agent CLI.** The CLI runs one turn per process. The engine's tools reach it over an MCP server the engine serves on the loopback interface, so the CLI needs no configuration of its own. The CLI must be signed in as the operator: `claude` uses the login in its keychain, so sign in with `claude` once before starting.
 
