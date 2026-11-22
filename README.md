@@ -235,6 +235,7 @@ Read in order; each builds on the ones before it.
 - [007 Architecture](docs/007-architecture.md)
 - [008 Cookbook](docs/008-cookbook.md): adding a Source
 - [009 Keeping upgrades recoverable](docs/009-maintenance.md): state compatibility, rollback and the next reliability decisions
+- [010 One host, several repositories](docs/010-multi-repository.md): watching several repositories from one deployment
 
 ## Contributing
 

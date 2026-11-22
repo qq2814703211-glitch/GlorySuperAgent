@@ -27,7 +27,7 @@ async function capture(page, name) {
   }
 }
 if (baseline) {
-  const child = spawn(process.execPath, ['scripts/superagent.mjs', '--port', '0', '--no-open'], {
+  const child = spawn(process.execPath, ['scripts/glorysuperagent.mjs', '--port', '0', '--no-open'], {
     cwd: baseline, env: { ...environment, SUPERAGENT_STATE_DIR: join(state, 'before') }, stdio: ['ignore', 'pipe', 'inherit'],
   })
   const browser = await chromium.launch({ channel: 'chrome', headless: false, chromiumSandbox: true })

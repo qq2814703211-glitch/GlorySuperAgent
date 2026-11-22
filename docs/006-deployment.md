@@ -272,7 +272,7 @@ From an allowed GitHub account, open an Issue or post a comment containing `@<ag
 
 ## Upgrade
 
-**Upgrading from the `dsh-superagent` package:** Keep your checkout and state directory in place. If the DSH profile links the bundle under the old package name, replace that package link with `glorysuperagent` pointing at the same checkout; do not load both bundles. Keep the `dsh-superagent` entry and preset IDs in the profile patch. Standalone installs need no state migration: `pnpm start` and the old `scripts/superagent.mjs` launcher still work.
+**Upgrading from the `dsh-superagent` package:** Keep your checkout and state directory in place. If the DSH profile links the bundle under the old package name, replace that package link with `glorysuperagent` pointing at the same checkout; do not load both bundles. Keep the `dsh-superagent` entry and preset IDs in the profile patch. Standalone installs need no state migration: `pnpm start` opens the desktop app, and the headless launcher is `node scripts/glorysuperagent.mjs`.
 
 If your GitHub Source watches this fork, set its repository to `qq2814703211-glitch/GlorySuperAgent`. For a checkout whose `origin` points to the old fork URL, run `git remote set-url origin https://github.com/qq2814703211-glitch/GlorySuperAgent.git`. The checkout directory does not need to be renamed.
 
