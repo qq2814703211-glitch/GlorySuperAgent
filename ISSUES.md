@@ -1,6 +1,6 @@
 # Issues and improvements
 
-This is the work backlog for Super-agent 2.0, a fork of [deepseek-ai/dsh-superagent-prototype](https://github.com/deepseek-ai/dsh-superagent-prototype). Each item stands alone, so a coding agent can pick one up without any other context.
+This is the work backlog for GlorySuperAgent, a fork of [deepseek-ai/dsh-superagent-prototype](https://github.com/deepseek-ai/dsh-superagent-prototype). Each item stands alone, so a coding agent can pick one up without any other context.
 
 ## How to use this file
 
@@ -212,12 +212,9 @@ These are finished and on `main`, with typecheck, tests and build passing, but n
 - **Acceptance:** CI runs on pull requests, and a deliberately reverted guard fails it.
 - **Size:** S. **Depends on:** the repo being public or on GitHub. **Status:** Done (ci/test-02): `.github/workflows/ci.yml` runs `pnpm check`, the attack chain under its own name, and a production audit; a macOS job runs the sandbox spec. A critical advisory fails the build, while high and moderate ones are reported because they sit in transitive packages (see [PKG-04](#pkg-04-a-high-advisory-sits-in-a-production-dependency)). The first run on a Linux runner failed on two things the suite had never been run against: the sandbox test asked for macOS and the host looked for Seatbelt on the runner, and a late ready signal hid an error the Feishu consumer had already reported. Both are fixed.
 
-## PKG-01: Rebrand as Super-agent 2.0 without implying DeepSeek's involvement
-- **Evidence:** `package.json:2` (`dsh-superagent`), `package.json:3` (author is the DeepSeek Harness team), `README.md:3` and `:7`, `LICENSE:3`.
-- **Failure:** "2.0" reads as DeepSeek's official next version, and the current README calls it a DeepSeek prototype. Removing their notice would break the MIT terms.
-- **Fix:** display name **Super-agent 2.0**, repo and package `super-agent-2`. Keep the `LICENSE` text and its copyright line, adding your own beside it. Add this line near the top of the README: "Independent community project. Not affiliated with or endorsed by DeepSeek." Describe the upstream as the fork's origin, and use no DeepSeek logo. Keep the hyphen and the `2`: `superagent` is an npm HTTP client, and `superagent-ai/superagent` is an AI security product. Re-check GitHub, npm and X before publishing.
-- **Acceptance:** the README has the notice, `LICENSE` keeps the original copyright, a package name check passes, and the docs don't suggest DeepSeek endorsement.
-- **Size:** S. **Depends on:** the operator's OK before anything goes public. **Status:** Confirmed-by-reading.
+## PKG-01: Distinguish the fork from the upstream project
+- **Project:** GlorySuperAgent. The private package is `glorysuperagent`; the README credits the upstream project and disclaims DeepSeek endorsement. The original MIT notice is preserved.
+- **Repository:** changing the GitHub repository name is a separate administrator action tracked in #14. No npm publication is part of this rename.
 
 ## DOC-01: No threat model or security policy, and docs overstate protection
 - **Evidence:** no `SECURITY.md`. `docs/002-authorization.md:5` says the host enforces permissions and messages cannot change them, while the router could save policy (`src/app/tools/main.ts:249`). `docs/006-deployment.md:165` gives API callers panel permissions, including agents. A search of `docs`, `SETUP.md` and `README.md` for "threat", "prompt injection" and "trust" finds only `docs/007-architecture.md` and `docs/008-cookbook.md`, with no threat model in either.

@@ -1,6 +1,6 @@
 # SETUP
 
-Instructions for an agent that sets up dsh-superagent with its operator. If you are a person, ask your coding agent to read this file and follow it.
+Instructions for an agent that sets up GlorySuperAgent with its operator. If you are a person, ask your coding agent to read this file and follow it.
 
 ## How to run the setup
 
@@ -53,7 +53,7 @@ Ask in this order, one per message, following the flow of work in [docs/001-doma
 Do not ask about values with a good default; list them in the plan instead:
 
 - profile `superagent`, a copy of DSH's Web profile kept apart from the profile the operator works in, so it restarts without closing their Sessions; port `3082`; state directory `<home>/.dsh/state/superagent` as an absolute path;
-- an hourly check from the operator's own profile, which repairs dsh-superagent when it is not running;
+- an hourly check from the operator's own profile, which repairs GlorySuperAgent when it is not running;
 - branch prefix `agent/`;
 - accept mode `observe`, which records proactive work without doing it, and the default rules and prompt sections;
 - with Feishu: the bot reads only mentions, and direct messages are on.
@@ -73,7 +73,7 @@ Send one message, under 300 words: what will be installed, the accounts and CLIs
 
 `scripts/dsh-superagent status` exits 0 with no setup problem. If you run in the operator's own DSH profile, create the hourly check of the Hourly check section of `docs/006-deployment.md` with your schedule tool; otherwise give the operator its prompt to schedule there. Then send one message, under 300 words:
 
-- The panel URL, and that the **Superagent** entry in the sidebar is where to look.
+- The panel URL, and that the **GlorySuperAgent** entry in the sidebar is where to look.
 - How to try it: from an account on the allowed list, comment `@<agent login> <request>` on an issue in the repository. A Ticket appears on the overview within about a minute.
 - Three rules for the operator, from the Responsibility section of `docs/000-philosophy.md`: start narrow, tune for less noise, own what the agent says.
 - Where to read more: the numbered documents in `docs/`, in order.

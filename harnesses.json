@@ -10,15 +10,14 @@
       "model": "gemini-4-carbon-high",
       "readable": [
         "/Users/dearglory/.gemini",
-        "/Users/dearglory/Global-repos/super-agent-2/adapters",
         "/Users/dearglory/.local/bin",
-        "/Users/dearglory/Global-repos/super-agent-2"
+        "${tableDir}/adapters"
       ],
       "state": [
         "/Users/dearglory/.gemini"
       ],
       "args": [
-        "/Users/dearglory/Global-repos/super-agent-2/adapters/agy.mjs"
+        "${tableDir}/adapters/agy.mjs"
       ]
     },
     "antigravity-xhigh": {
@@ -26,15 +25,14 @@
       "model": "gemini-4-hydrogen-xhigh",
       "readable": [
         "/Users/dearglory/.gemini",
-        "/Users/dearglory/Global-repos/super-agent-2/adapters",
         "/Users/dearglory/.local/bin",
-        "/Users/dearglory/Global-repos/super-agent-2"
+        "${tableDir}/adapters"
       ],
       "state": [
         "/Users/dearglory/.gemini"
       ],
       "args": [
-        "/Users/dearglory/Global-repos/super-agent-2/adapters/agy.mjs"
+        "${tableDir}/adapters/agy.mjs"
       ]
     },
     "claude": {
@@ -46,12 +44,12 @@
     "codex": {
       "command": "/Users/dearglory/.hermes/tools/node-26.12.1-darwin-arm64/bin/node",
       "args": [
-        "/Users/dearglory/Global-repos/super-agent-2/adapters/codex.mjs"
+        "${tableDir}/adapters/codex.mjs"
       ],
       "readable": [
         "/Users/dearglory/.codex",
         "/Users/dearglory/.hermes/tools/node-26.12.1-darwin-arm64",
-        "/Users/dearglory/Global-repos/super-agent-2"
+        "${tableDir}/adapters"
       ],
       "state": [
         "/Users/dearglory/.codex"
@@ -60,13 +58,13 @@
     "dsh": {
       "command": "/Users/dearglory/.hermes/tools/node-26.12.1-darwin-arm64/bin/node",
       "args": [
-        "/Users/dearglory/Global-repos/super-agent-2/adapters/dsh.mjs"
+        "${tableDir}/adapters/dsh.mjs"
       ],
       "readable": [
         "/Users/dearglory/.dsh",
         "/Users/dearglory/.hermes/tools/node-26.12.1-darwin-arm64",
         "/Applications/DeepSeek Harness.app",
-        "/Users/dearglory/Global-repos/super-agent-2"
+        "${tableDir}/adapters"
       ],
       "state": [
         "/Users/dearglory/.dsh"

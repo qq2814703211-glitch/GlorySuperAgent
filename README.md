@@ -1,10 +1,10 @@
 <div align="center">
 
-# Super-agent 2.0
+# GlorySuperAgent
 
 **An always-on coding agent for GitHub and chat. Bring any coding-agent CLI. Runs on your machine.**
 
-Super-agent listens to GitHub and chat, turns requests from people you authorize into tickets, and runs each one in its own workspace with the agent CLI you choose: Claude Code, Codex, Gemini CLI, OpenCode, or any other. It is built to stay safe while reading text from strangers, even if the model is fooled.
+GlorySuperAgent listens to GitHub and chat, turns requests from people you authorize into tickets, and runs each one in its own workspace with the agent CLI you choose: Claude Code, Codex, Gemini CLI, OpenCode, or any other. It is built to stay safe while reading text from strangers, even if the model is fooled.
 
 > **It runs on its own.** One command starts the host, the panel and your coding-agent CLI on your machine, with no DeepSeek software. Claude Code is the first CLI supported; the others are next. See the [roadmap](#roadmap).
 
@@ -15,7 +15,7 @@ Super-agent listens to GitHub and chat, turns requests from people you authorize
 </div>
 
 > [!NOTE]
-> **This is a community fork of [deepseek-ai/dsh-superagent-prototype](https://github.com/deepseek-ai/dsh-superagent-prototype), the reference code for DeepSeek's Super-agent design.** It's independent and not affiliated with or endorsed by DeepSeek. "2.0" is our name for this effort, not an official successor.
+> **GlorySuperAgent is a community fork of [deepseek-ai/dsh-superagent-prototype](https://github.com/deepseek-ai/dsh-superagent-prototype), the reference code for DeepSeek's Super-agent design.** It is independent and not affiliated with or endorsed by DeepSeek.
 
 > [!WARNING]
 > **Don't run this on a repository or machine you care about yet.** On the standalone host workers are now confined to their ticket directory ([SEC-01](ISSUES.md#sec-01-workers-run-unconfined-as-the-operators-os-user)), but they still reach the network and the CLI's own sign-in, and the other P0 items below are open. Inside the DeepSeek Harness they still run unconfined.
@@ -86,7 +86,7 @@ The router reads text from strangers, so it's the role to protect. The host refu
 
 The original repository [has issues, pull requests and discussions turned off](https://github.com/deepseek-ai/dsh-superagent-prototype) (checked through the GitHub API on 2 November 2026), so problems can't be reported or fixed there. **So we forked it, and we're fixing them here, in the open.** This is the same Super-agent code, with our changes on top.
 
-If you've read the article and want to work on the Super-agent, you can do that here: open an issue, send a pull request, or pick up an item from the backlog.
+If you've read the article and want to work on GlorySuperAgent, you can do that here: open an issue, send a pull request, or pick up an item from the backlog.
 
 The original is a good design and a fair starting point. Its [article](https://x.com/DeepSeekHarness/status/2116857257245987236) calls the code a research prototype and names security and privacy as an open problem. This project takes that problem on.
 
@@ -187,7 +187,6 @@ Each item in [ISSUES.md](ISSUES.md) has evidence, a failure scenario, acceptance
 | COST-02 | No rate limit on incoming events | Per-thread and per-sender limits before any model call, plus a circuit breaker |
 | TEST-01 | Nothing tests against the real harness | A smoke test that boots the real harness with a fake model |
 | TEST-02 | No CI or security regression gate | CI that runs checks, a dependency audit and the attack tests |
-| PKG-01 | The code and package still use the original name | Rename to `super-agent-2`, keeping the MIT notice and the unaffiliated line |
 | DOC-01 | No threat model or security policy | A `SECURITY.md` covering what is and isn't protected |
 
 ### P2 and P3
@@ -203,11 +202,8 @@ The architecture is why this project exists: a long-lived router with isolated w
 Only in a disposable environment, with a throwaway GitHub account, a private test repository and a spend-limited API key.
 
 ```bash
-git clone https://github.com/abubakarsiddik31/super-agent-2
-```
-
-```bash
-cd super-agent-2 && pnpm install && pnpm check
+git clone https://github.com/qq2814703211-glitch/GlorySuperAgent.git
+cd GlorySuperAgent && pnpm install && pnpm check
 ```
 
 **Start it.** One process runs the engine, the management API, the Sources, the agent CLI and the panel:
@@ -216,13 +212,15 @@ cd super-agent-2 && pnpm install && pnpm check
 pnpm build && pnpm start --cli claude
 ```
 
+The standalone CLI is `glorysuperagent`. From a checkout, run `node scripts/glorysuperagent.mjs --help`; `pnpm start` and `node scripts/superagent.mjs` still work. Both names use the same settings and ticket history.
+
 It opens the panel at http://127.0.0.1:3082 (another free port when that one is taken; `--port` picks one, `--no-open` keeps the browser closed). There you add the repository and the agent's GitHub account in Settings, and the host checks them and starts. The state directory (by default `~/.superagent`) holds the database, the worker shims and the panel token; `--state-dir` moves it. The page the host serves carries the token, so there is no sign-in.
 
 **Workers are confined.** Each agent process runs in the operating system's sandbox (Seatbelt on macOS, bubblewrap on Linux): it can read and write only its own ticket directory and the repository's git directory, and cannot read your home directory or touch the state directory. `--allow-read PATH` and `--allow-write PATH` open one more path, for a toolchain in your home directory. The host refuses to start an agent on a machine with no sandbox; `--sandbox off` runs agents as your own user instead, and says so at startup. The CLI's own sign-in stays readable, and the network is open, until [SEC-02](ISSUES.md#sec-02-long-lived-credentials-are-within-a-workers-reach) is done.
 
 **Developing the panel.** `pnpm ui:dev` serves the panel from source with hot reload on http://localhost:5273 and forwards the API to a running host (`SUPERAGENT_API`, `SUPERAGENT_TOKEN_FILE`).
 
-**Inside the DeepSeek Harness.** The original plugin still works, and still runs agents the DeepSeek way. To run it that way, ask a coding agent to follow [SETUP.md](SETUP.md). The code and commands still use the name `dsh-superagent`, and the management API needs the token described in [the deployment guide](docs/006-deployment.md).
+**Inside DeepSeek Harness.** Follow [SETUP.md](SETUP.md) for a new installation or the [upgrade instructions](docs/006-deployment.md#upgrade) for an existing profile. The private package is `glorysuperagent`. Profile entry IDs, the `scripts/dsh-superagent` command, environment variables and state directories keep their existing names so operators can reuse their settings and ticket history.
 
 ## Documentation
 
@@ -247,7 +245,7 @@ Issues and pull requests are open.
 3. Run `pnpm check`. New test files must be listed in [docs/007-architecture.md](docs/007-architecture.md).
 4. Use harmless marker text in tests, never working injection payloads or real credentials.
 
-**Found a vulnerability?** Please report it privately through [GitHub's security advisories](https://github.com/abubakarsiddik31/super-agent-2/security/advisories/new), not in a public issue.
+**Found a vulnerability?** Please report it privately through [GitHub's security advisories](https://github.com/qq2814703211-glitch/GlorySuperAgent/security/advisories/new), not in a public issue.
 
 ## License and credit
 
