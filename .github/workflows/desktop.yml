@@ -26,6 +26,10 @@ jobs:
           persist-credentials: false
       - name: Open the Mac application and capture the panel
         if: runner.os == 'macOS'
+        # The screenshot comparison is evidence, not a gate: a runner without a usable window server must not
+        # hold the packaged artifacts hostage.
+        continue-on-error: true
+        timeout-minutes: 6
         run: |
           baseline=.artifacts/baseline
           if test -f "$baseline/scripts/superagent.mjs"; then
