@@ -26,6 +26,8 @@ const sessionId = contract.resume ?? contract.sessionId
 
 const args = ['exec', '--json', '--skip-git-repo-check', '--color', 'never', '-C', process.cwd()]
 if (contract.model) args.push('-m', contract.model)
+// A harness entry may pin the reasoning effort; without one the CLI's own config decides.
+if (contract.effort) args.push('-c', `model_reasoning_effort=${JSON.stringify(contract.effort)}`)
 // The outer seatbelt confines this process; an inner `workspace-write` sandbox only adds a way for MCP calls to fail.
 const sandbox = process.env.SA_CODEX_SANDBOX || 'danger-full-access'
 args.push('-s', sandbox)
@@ -38,7 +40,15 @@ const prompt = joinPrompt(contract.systemPrompt, contract.prompt)
 if (contract.resume) args.push('resume', contract.resume, prompt)
 else args.push(prompt)
 
-emitInit({ sessionId, tools, serverName: endpoint?.name ?? 'superagent', status: endpoint ? 'connected' : 'absent' })
+// The init line carries the session id the runner resumes next turn. Codex ignores the id the runner passes for a
+// new turn and starts a thread of its own, so the init line waits for `thread.started` and reports that id; reporting
+// the runner's id instead sends every later resume after a thread that was never written.
+let initSent = false
+const sendInit = sid => {
+  if (initSent) return
+  initSent = true
+  emitInit({ sessionId: sid ?? sessionId, tools, serverName: endpoint?.name ?? 'superagent', status: endpoint ? 'connected' : 'absent' })
+}
 
 let reportedFailure
 const { code, stderr } = await run(process.env.SA_CODEX_BIN || 'codex', args, { cwd: process.cwd(), env: process.env }, line => {
@@ -46,8 +56,8 @@ const { code, stderr } = await run(process.env.SA_CODEX_BIN || 'codex', args, { 
   try { parsed = JSON.parse(line) } catch { return }
   const type = parsed?.type ?? 'unknown'
   if (type === 'thread.started') {
-    // The runner resumes the conversation by this id, so it is reported as the session.
-    if (!contract.resume && parsed.thread_id) emitEvent('system/session', { session_id: parsed.thread_id })
+    sendInit(parsed.thread_id)
+    if (parsed.thread_id) emitEvent('system/session', { session_id: parsed.thread_id })
     return
   }
   if (type === 'error') {
@@ -66,4 +76,6 @@ if (process.env.SA_ADAPTER_LOG) {
     `${new Date().toISOString()} codex exit=${code} failure=${reportedFailure ?? 'none'} stderr=${(stderr ?? '').slice(-600).replaceAll('\n', ' | ')}\n`)
 }
 if (code !== 0) fail(stderr || reportedFailure || `codex ended with ${code}`)
+// A turn that ended before codex named its thread still reports its tools, so the runner reads a complete turn.
+sendInit()
 if (reportedFailure) fail(reportedFailure)

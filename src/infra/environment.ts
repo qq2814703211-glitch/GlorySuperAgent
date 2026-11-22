@@ -110,6 +110,8 @@ export async function writeEnvironment(deployment: Pick<Deployment, 'stateDir' |
     '[credential]', '\thelper =',
     '[credential "https://github.com"]', `\thelper = ${gitQuote(credentialHelper(github.cli))}`,
     '[url "https://github.com/"]', '\tinsteadOf = git@github.com:', '\tinsteadOf = ssh://git@github.com/',
+    // A host on a network where github.com is only reachable through a proxy passes it here; unset keeps the file as it was.
+    ...process.env.SUPERAGENT_GIT_PROXY?.trim() ? ['[http "https://github.com"]', `\tproxy = ${gitQuote(process.env.SUPERAGENT_GIT_PROXY.trim())}`] : [],
     // Include Git LFS filters because the operator's global gitconfig (which usually holds them) is ignored.
     '[filter "lfs"]', '\tclean = git-lfs clean -- %f', '\tsmudge = git-lfs smudge -- %f', '\tprocess = git-lfs filter-process', '\trequired = true',
   ].join('\n') + '\n')

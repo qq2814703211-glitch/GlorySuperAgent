@@ -55,13 +55,22 @@ const workerCli = values.workerCli ?? process.env.SUPERAGENT_WORKER_CLI
 const defaultHarness = values.defaultHarness ?? process.env.SUPERAGENT_DEFAULT_HARNESS ?? harnessTable?.default
 const workerCliModel = values.workerCliModel ?? process.env.SUPERAGENT_WORKER_CLI_MODEL
 /** The default port, which keeps the panel's address the same from one start to the next. */
+/** The router's CLI config: the command, the adapter's arguments and the paths the adapter needs are all the table's. */
+const routerCli = cli ? {
+  command: cli,
+  ...routerEntry?.args ? { args: routerEntry.args } : {},
+  ...cliModel ? { model: cliModel } : {},
+  ...routerEntry?.effort ? { effort: routerEntry.effort } : {},
+  ...routerEntry?.readable ? { readable: routerEntry.readable } : {},
+  ...routerEntry?.state ? { state: routerEntry.state } : {},
+} : undefined
 const DEFAULT_PORT = 3082
 const start = port => startStandalone({
   ...stateDir ? { stateDir } : {},
   port,
   ...values.sandbox ?? process.env.SUPERAGENT_SANDBOX ? { sandbox: values.sandbox ?? process.env.SUPERAGENT_SANDBOX } : {},
   ...values.readable || values.writable ? { sandboxExtras: { readable: values.readable ?? [], writable: values.writable ?? [] } } : {},
-  ...cli ? { cli: { command: cli, ...cliModel ? { model: cliModel } : {} } } : {},
+  ...routerCli ? { cli: routerCli } : {},
   ...workerCli ? { workerCli: { command: workerCli, ...workerCliModel ? { model: workerCliModel } : {} } } : {},
   ...harnessTable?.harnesses ? { harnesses: harnessTable.harnesses } : {},
   ...defaultHarness ? { defaultHarness } : {},
