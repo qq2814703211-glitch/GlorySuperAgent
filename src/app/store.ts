@@ -60,15 +60,16 @@ export class Store implements Repositories {
     this.db = new DatabaseSync(path)
     this.read = storeReads(this.db)
     try {
-      chmodSync(path, 0o600)
-      this.db.exec('PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT NOT NULL)')
-      const version = this.get(KV.store.schema)
+      const version = this.schemaOnDisk()
       if (version !== undefined && version > SCHEMA_VERSION) throw new Error(`Unsupported orchestrator database version ${version}`)
       if (version !== undefined && version < OLDEST_SCHEMA) throw new Error(tooOld(version))
+      chmodSync(path, 0o600)
+      this.db.exec('PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL')
       const migrating = version !== undefined && version < SCHEMA_VERSION
       try {
         this.atomic(() => {
           this.db.exec(`
+            CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS trigger (id TEXT PRIMARY KEY, value TEXT NOT NULL, at TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS disposition (id TEXT PRIMARY KEY, value TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS thread (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -98,6 +99,21 @@ export class Store implements Repositories {
       this.db.close()
       throw error
     }
+  }
+  private schemaOnDisk(): number | undefined {
+    const objects = this.db.prepare("SELECT name, type FROM sqlite_schema WHERE name NOT GLOB 'sqlite_*'").all()
+    if (!objects.length) return undefined
+    if (objects.some(row => row.type === 'table' && row.name === 'kv')) {
+      let version: unknown
+      try { version = this.get(KV.store.schema) } catch (error) {
+        if (!(error instanceof SyntaxError)) throw error
+        throw new Error('Invalid orchestrator database schema marker: expected a JSON integer')
+      }
+      if (typeof version === 'number' && Number.isSafeInteger(version)) return version
+      if (version !== undefined) throw new Error('Invalid orchestrator database schema marker: expected a JSON integer')
+      if (objects.length === 1 && !this.db.prepare('SELECT 1 FROM kv LIMIT 1').get()) return undefined
+    }
+    throw new Error('Missing orchestrator database schema marker in a nonempty database; check the state directory or restore a backup')
   }
   /** Reconciles generated working-set columns and indexes when opening databases created by earlier versions. */
   private addColumns(): void {

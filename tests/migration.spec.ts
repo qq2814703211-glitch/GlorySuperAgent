@@ -37,6 +37,41 @@ function schema10(path: string, records: Record<string, unknown>, rows: { ticket
 const actor = { source: 'feishu', id: 'ou_alice' }
 const mandate = (basis: object) => ({ strength: 'explicit', policyVersion: 'v1', basis, actor, scope: 'small' })
 
+it.each([undefined, '"11"', '10.5', '{}', 'broken JSON'])('does not adopt or migrate a database with schema marker %s', raw => {
+  const path = join(directory, 'db.sqlite')
+  const db = new DatabaseSync(path)
+  db.exec('CREATE TABLE kv (key TEXT PRIMARY KEY, value TEXT NOT NULL)')
+  const insert = db.prepare('INSERT INTO kv VALUES (?, ?)')
+  insert.run('operator-note', '"keep"')
+  if (raw !== undefined) insert.run('schema', raw)
+  const snapshot = () => [db.prepare('SELECT * FROM kv ORDER BY key').all(), db.prepare('SELECT sql FROM sqlite_schema ORDER BY name').all(),
+    db.prepare('PRAGMA journal_mode').get()]
+  try {
+    const before = snapshot()
+    expect(() => new Store(path)).toThrow(/database schema marker/)
+    expect(snapshot()).toEqual(before)
+  } finally { db.close() }
+})
+
+it('does not initialize another application\'s database', () => {
+  const path = join(directory, 'db.sqlite')
+  const db = new DatabaseSync(path)
+  try {
+    db.exec('CREATE TABLE notes (value TEXT)')
+    expect(() => new Store(path)).toThrow(/database schema marker/)
+    expect(db.prepare('SELECT name FROM sqlite_schema').all()).toEqual([{ name: 'notes' }])
+  } finally { db.close() }
+})
+
+it('can finish initialization when an older start left only the empty kv table', () => {
+  const path = join(directory, 'db.sqlite')
+  const db = new DatabaseSync(path)
+  db.exec('CREATE TABLE kv (key TEXT PRIMARY KEY, value TEXT NOT NULL)')
+  db.close()
+  const store = new Store(path)
+  try { expect(store.get(KV.store.schema)).toBe(SCHEMA_VERSION) } finally { store.close() }
+})
+
 it('refuses a database older than schema 10 and asks for a new state directory', () => {
   const path = join(directory, 'db.sqlite')
   new Store(path).close()

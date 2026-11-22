@@ -15,6 +15,19 @@ permissions:
   contents: read
 
 jobs:
+  storage-compatibility:
+    name: SQLite upgrades on Node 22.19.0
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.19.0
+      - uses: pnpm/action-setup@v4
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec vitest run tests/migration.spec.ts tests/store.spec.ts
+
   check:
     name: Typecheck, tests and build
     runs-on: ubuntu-latest

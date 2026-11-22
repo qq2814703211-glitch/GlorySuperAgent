@@ -287,9 +287,14 @@ If your GitHub Source watches this fork, set its repository to `qq2814703211-gli
 3. Run `git pull && pnpm install && pnpm build`.
 4. Run `scripts/dsh-superagent restart` and inspect its status.
 
+1. Wait until no Executor is in the middle of a turn, then stop the host. For the managed DSH profile use `scripts/dsh-superagent stop`. Confirm it has stopped before copying state.
+2. Back up the state directory outside the working copy. Keep the database and any `-wal` or `-shm` files together; copying only `orchestrator.sqlite` from a running host can omit committed work. Keep the backup private and note the revision that wrote it.
+3. Update the checkout, then run `pnpm install --frozen-lockfile && pnpm build`.
+4. Start the same host with the same state directory. For the managed profile use `scripts/dsh-superagent start` and `scripts/dsh-superagent status`. Check that pre-upgrade tickets and settings are present.
+
 A restart ends running Assignments and starts replacements with recovery notes. Team text and overridden prompt parts are retained; parts without overrides follow the new defaults. Review parts marked **Default updated** after upgrading.
 
-A database migrated by a newer version cannot be opened by an older one. Rollback therefore requires the pre-upgrade backup. After upgrading DeepSeek Harness itself, restart the running instance so the panel loads matching artifacts.
+If startup rejects the database version or reports a missing or invalid schema marker, verify the state directory first. Do not edit or delete the marker to force startup. To roll back, stop the host, retain the failed state separately, and start the previous revision against a restored copy of its pre-upgrade backup. A restore does not include work recorded after the backup. After upgrading DeepSeek Harness itself, restart the running instance so the panel loads matching artifacts.
 
 ### Agent presets
 
