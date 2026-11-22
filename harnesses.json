@@ -1,7 +1,7 @@
 {
   "router": {
     "command": "claude",
-    "model": "glorycode-ds/deepseek-v4-flash"
+    "model": "glorycode-ds/deepseek-v4.1-flash"
   },
   "default": "codex",
   "harnesses": {
@@ -11,7 +11,9 @@
       "readable": [
         "/Users/dearglory/.gemini",
         "/Users/dearglory/.local/bin",
-        "${tableDir}/adapters"
+        "${tableDir}/adapters",
+        "/Users/dearglory/Global-repos/super-agent-2",
+        "/Users/dearglory/.config/gh-glory-gitbot"
       ],
       "state": [
         "/Users/dearglory/.gemini"
@@ -26,7 +28,9 @@
       "readable": [
         "/Users/dearglory/.gemini",
         "/Users/dearglory/.local/bin",
-        "${tableDir}/adapters"
+        "${tableDir}/adapters",
+        "/Users/dearglory/Global-repos/super-agent-2",
+        "/Users/dearglory/.config/gh-glory-gitbot"
       ],
       "state": [
         "/Users/dearglory/.gemini"
@@ -38,7 +42,9 @@
     "claude": {
       "command": "claude",
       "readable": [
-        "/Users/dearglory/.hermes/tools/node-26.12.1-darwin-arm64/lib/node_modules/@anthropic-ai"
+        "/Users/dearglory/.hermes/tools/node-26.12.1-darwin-arm64/lib/node_modules/@anthropic-ai",
+        "/Users/dearglory/.config/gh-glory-gitbot",
+        "/Users/dearglory/.local/bin"
       ]
     },
     "codex": {
@@ -49,7 +55,10 @@
       "readable": [
         "/Users/dearglory/.codex",
         "/Users/dearglory/.hermes/tools/node-26.12.1-darwin-arm64",
-        "${tableDir}/adapters"
+        "${tableDir}/adapters",
+        "/Users/dearglory/Global-repos/super-agent-2",
+        "/Users/dearglory/.config/gh-glory-gitbot",
+        "/Users/dearglory/.local/bin"
       ],
       "state": [
         "/Users/dearglory/.codex"
@@ -62,9 +71,13 @@
       ],
       "readable": [
         "/Users/dearglory/.dsh",
+        "/Users/dearglory/.claude",
         "/Users/dearglory/.hermes/tools/node-26.12.1-darwin-arm64",
         "/Applications/DeepSeek Harness.app",
-        "${tableDir}/adapters"
+        "${tableDir}/adapters",
+        "/Users/dearglory/Global-repos/super-agent-2",
+        "/Users/dearglory/.config/gh-glory-gitbot",
+        "/Users/dearglory/.local/bin"
       ],
       "state": [
         "/Users/dearglory/.dsh"

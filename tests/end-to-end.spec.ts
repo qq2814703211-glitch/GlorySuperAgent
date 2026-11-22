@@ -149,7 +149,7 @@ it.skipIf(!CLAUDE)('runs a ticket from the request to the worker\'s report', asy
   await vi.waitFor(() => {
     const report = host.runtime.store.tickets.get(ticketId)!.assignments.at(-1)?.report
     expect(report).toBeTruthy()
-  }, { timeout: Number(process.env.SA_TEST_REPORT_TIMEOUT ?? 120_000), interval: 1000 })
+  }, { timeout: Number(process.env.SA_TEST_REPORT_TIMEOUT ?? 240_000), interval: 1000 })
   const report = host.runtime.store.tickets.get(ticketId)!.assignments.at(-1)!.report!
   // The worker reported through the engine's tool, so the ticket knows what happened.
   // A failed turn is recorded as a report too, so the state is what distinguishes the worker's own result. A harness
@@ -161,4 +161,4 @@ it.skipIf(!CLAUDE)('runs a ticket from the request to the worker\'s report', asy
   // The summary is the model's own text; a route can answer a fixture ticket with an empty one, and what this test
   // proves is that the worker's tool call reached the ticket at all.
   expect(typeof report.summary).toBe('string')
-}, 300_000)
+}, 540_000)

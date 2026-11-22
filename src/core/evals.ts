@@ -45,6 +45,14 @@ export class Evals extends EnginePart {
     else return
     this.repo.threads.save(thread)
   }
+  /**
+   * Asks the assessor again for an Eval whose candidate never reached its Session, as after a host restart between
+   * starting the Eval and delivering the card: the request is keyed by the Eval and the delivery by its request id, so a
+   * second request delivers once.
+   */
+  resume(thread: Thread): void {
+    if (thread.evaluating && !thread.evaluating.delivered) this.options.assessor.request(this.candidateOf(thread))
+  }
   /** An Eval's candidate reached the assessor's Session: its deadline counts from now. */
   delivered(evalId: string, policy: Policy): void {
     const thread = this.repo.threads.active().find(item => item.evaluating?.id === evalId)

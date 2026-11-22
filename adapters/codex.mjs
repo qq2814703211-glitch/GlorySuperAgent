@@ -75,7 +75,13 @@ if (process.env.SA_ADAPTER_LOG) {
   appendFileSync(process.env.SA_ADAPTER_LOG,
     `${new Date().toISOString()} codex exit=${code} failure=${reportedFailure ?? 'none'} stderr=${(stderr ?? '').slice(-600).replaceAll('\n', ' | ')}\n`)
 }
-if (code !== 0) fail(stderr || reportedFailure || `codex ended with ${code}`)
+if (code !== 0 && !reportedFailure) {
+  // codex prints this on every turn whose prompt arrives on stdin, and exits non-zero after a turn that did its work
+  // and reported it: only real stderr text makes the turn a failure.
+  const lines = (stderr ?? '').split('\n').map(line => line.trim())
+    .filter(line => line && !/^Reading additional input from stdin\.\.\.$/.test(line))
+  if (lines.length) fail(lines.join('\n'))
+}
 // A turn that ended before codex named its thread still reports its tools, so the runner reads a complete turn.
 sendInit()
 if (reportedFailure) fail(reportedFailure)

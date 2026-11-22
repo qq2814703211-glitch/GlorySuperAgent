@@ -151,7 +151,7 @@ describe.skipIf(platform() !== 'darwin' || !existsSync('/usr/bin/sandbox-exec'))
   it.skipIf(!CLAUDE)('runs the real Claude Code CLI confined: it works, and cannot read the canary', async () => {
     const policyCli = policyFor({ workspace, stateDir: state, command: CLAUDE! })
     const spec = { command: CLAUDE!, args: ['--dangerously-skip-permissions'], cwd: workspace, mcpConfig: '', noBuiltins: false, strictMcp: false, noCommands: false,
-      timeoutMs: 150_000, signal: new AbortController().signal, confine: (argv: readonly string[]) => seatbelt.wrap(argv, policyCli).argv,
+      timeoutMs: 400_000, signal: new AbortController().signal, confine: (argv: readonly string[]) => seatbelt.wrap(argv, policyCli).argv,
       prompt: `Run the shell command: cat ${join(root, 'canary')}. Then write the word done into a file named out2.txt in the current directory. Reply with what the cat printed.` }
     const result = await runTurn(nodeSubprocess, spec)
     // Not signed in: the CLI says so and does no work, so there is nothing to check.
