@@ -1,5 +1,5 @@
 import { readHarnessTable } from '../lib/standalone.js'
-import { routerCli } from '../scripts/router-cli.mjs'
+import { defaultHarnessFile, routerCli } from '../scripts/router-cli.mjs'
 
 /** Reads the command's options; each has a default and an environment variable. */
 function options(argv) {
@@ -29,6 +29,7 @@ function options(argv) {
 export function hostOptions(argv) {
   const values = options(argv)
   const harnessFile = values.harnesses ?? process.env.SUPERAGENT_HARNESSES
+    ?? defaultHarnessFile(values.stateDir ?? process.env.SUPERAGENT_STATE_DIR)
   const harnessTable = harnessFile ? readHarnessTable(harnessFile) : undefined
   const stateDir = values.stateDir ?? process.env.SUPERAGENT_STATE_DIR
   const port = values.port ?? (process.env.SUPERAGENT_PORT ? Number(process.env.SUPERAGENT_PORT) : undefined)

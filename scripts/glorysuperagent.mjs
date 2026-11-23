@@ -9,7 +9,7 @@
  * loopback interface; the panel token in the state directory authorizes it.
  */
 import { spawn } from 'node:child_process'
-import { routerCli } from './router-cli.mjs'
+import { defaultHarnessFile, routerCli } from './router-cli.mjs'
 
 /** Reads the command's options; each has a default and an environment variable. */
 function options(argv) {
@@ -42,9 +42,10 @@ const { startStandalone, readHarnessTable } = await import('../lib/standalone.js
   if (error?.code === 'ERR_MODULE_NOT_FOUND') { console.error('GlorySuperAgent is not built yet. Run `pnpm build`, then start it again.'); process.exit(1) }
   throw error
 })
-const harnessFile = values.harnesses ?? process.env.SUPERAGENT_HARNESSES
-const harnessTable = harnessFile ? readHarnessTable(harnessFile) : undefined
 const stateDir = values.stateDir ?? process.env.SUPERAGENT_STATE_DIR
+const harnessFile = values.harnesses ?? process.env.SUPERAGENT_HARNESSES
+  ?? defaultHarnessFile(stateDir)
+const harnessTable = harnessFile ? readHarnessTable(harnessFile) : undefined
 const port = values.port ?? (process.env.SUPERAGENT_PORT ? Number(process.env.SUPERAGENT_PORT) : undefined)
 /** The router entry of the harness file: the CLI that reads text from strangers, and the model it answers with. */
 const cli = routerCli(harnessTable, values.cli ?? process.env.SUPERAGENT_CLI,

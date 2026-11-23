@@ -6,7 +6,7 @@
     "DeepSeek Harness Team <team@dsh.dev>"
   ],
   "license": "MIT",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "private": true,
   "description": "GlorySuperAgent runs authorized coding requests from GitHub and chat in dedicated workspaces, standalone or inside DeepSeek Harness.",
   "type": "module",
