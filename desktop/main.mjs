@@ -27,8 +27,13 @@ else {
       if (new URL(details.url).origin !== origin) return done({ cancel: true })
       done({ requestHeaders: { ...details.requestHeaders, 'x-superagent-window': windowKey } })
     })
-    panel.setPermissionRequestHandler((_contents, _permission, done) => done(false))
-    panel.setPermissionCheckHandler(() => false)
+    const canCopy = (permission, requestingUrl, isMainFrame) =>
+      permission === 'clipboard-sanitized-write' && isMainFrame && URL.parse(requestingUrl ?? '')?.origin === origin
+    panel.setPermissionRequestHandler((_contents, permission, done, details) => {
+      done(canCopy(permission, details.requestingUrl, details.isMainFrame))
+    })
+    panel.setPermissionCheckHandler((_contents, permission, requestingOrigin, details) =>
+      canCopy(permission, requestingOrigin, details.isMainFrame))
     window = new BrowserWindow({ width: 1100, height: 720, useContentSize: true, title: 'GlorySuperAgent',
       webPreferences: { session: panel, sandbox: true, nodeIntegration: false, contextIsolation: true } })
     window.webContents.setWindowOpenHandler(({ url }) => {

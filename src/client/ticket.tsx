@@ -1,7 +1,7 @@
 /** Ticket detail page: stage and actions, Mandate details, undelivered/delivered Inputs, subscribed Threads, and Assignments. */
 import { useState, type ReactNode } from 'react'
 import { ApiError, usePoll, type TicketPageView } from './api.ts'
-import { DisclosureRow, Dot, Icon, Tag, type IconName } from './controls.tsx'
+import { Button, DisclosureRow, Dot, Icon, Tag, type IconName } from './controls.tsx'
 import { decisionMark, reportDot, ticketMark } from './marks.ts'
 import { usePanel } from './provider.tsx'
 import { settingsRoute } from './route.ts'
@@ -42,6 +42,35 @@ function Details({ icon, title, open = false, children }: { icon: IconName; titl
   return <DisclosureRow icon={<Icon name={icon} />} title={title} open={shown} onToggle={() => setShown(!shown)}>
     <div className="dt-disclosure-body">{children}</div>
   </DisclosureRow>
+}
+function TicketSession({ id }: { id: string }) {
+  const { t, call, notify } = usePanel()
+  const { data, error } = usePoll(() => call('GET tickets/:id/session', { id }), [id])
+  const copy = async (sessionId: string) => {
+    try { await navigator.clipboard.writeText(sessionId); notify(t('copied')) }
+    catch { notify(t('copySessionIdFailed')) }
+  }
+  return <Section title={t('ticketSession')} icon="session">
+    <LoadState loading={!data} error={error} />
+    {data && <>
+      <div className="dt-row-meta">
+        <LabelValue label={t('sessionId')} value={<code className="dt-mono">{data.sessionId}</code>} />
+        <Button variant="ghost" size="sm" icon={<Icon name="copy" size={14} />} aria-label={t('copySessionId')}
+          title={t('copySessionId')} onClick={() => { void copy(data.sessionId) }} />
+        <LabelValue label={t('sessionHarness')} value={data.harness ?? (data.startedAt ? t('sessionDefaultHarness') : t('empty'))} />
+        <LabelValue label={t('sessionState')} value={data.state ? <StageMark state={data.state === 'progress' ? 'ongoing' : 'done'}
+          icon="decision" label={valueLabel(t, 'report', data.state)} /> : t('empty')} />
+      </div>
+      {data.events.length > 0 ? <Details icon="queue" title={t('sessionEvents')} open>
+        <ul className="dt-list">{data.events.map(({ type, summary }, index) => <li className="dt-row" key={index}>
+          <div className="dt-row-main">
+            <div className="dt-row-title dt-mono">{type}</div>
+            {summary && <div className="dt-event-text">{summary}</div>}
+          </div>
+        </li>)}</ul>
+      </Details> : <Hint>{t('sessionNoEvents')}</Hint>}
+    </>}
+  </Section>
 }
 function Assignments({ ticket }: { ticket: TicketPageView }) {
   const { t } = usePanel()
@@ -154,6 +183,7 @@ export function TicketPage({ id }: { id: string }) {
       <span className="dt-banner-label">{t('deliveryFailedPrefix')}</span>{data.deliveryError}
     </p>}
     <MandateDetails ticket={data} actor={actor} />
+    <TicketSession key={data.id} id={data.id} />
     {undelivered.length > 0 && <Section title={t('undeliveredInputs')} count={undelivered.length}>
       <Hint>{data.deliveryError ? t('inputRetryHint') : data.paused ? t('inputPausedHint') : t('inputWaitingHint')}</Hint>
       <InputList inputs={undelivered} />

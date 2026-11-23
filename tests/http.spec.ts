@@ -6,6 +6,7 @@ import { SettingsConflict } from '../src/app/settings.ts'
 import type { HttpHost } from '../src/app/http.ts'
 import { SettingsSchema } from '../src/policy.ts'
 import { SetupError } from '../src/setup.ts'
+import { standalonePorts } from '../src/standalone.ts'
 
 type Handler = (req: unknown, res: unknown) => Promise<void>
 type Headers = Record<string, string | undefined>
@@ -50,6 +51,58 @@ it('answers each kind of failure with its own status', async () => {
   expect(await call('POST', 'tickets/t9/retry')).toEqual({ status: 404, body: { error: 'Ticket not found' } })
   expect(await call('GET', 'nothing/here')).toEqual({ status: 404, body: { error: 'Unknown operation' } })
   expect(await call('POST', 'executor/pause', 'not json')).toEqual({ status: 400, body: { error: 'The request body is not JSON' } })
+})
+
+it('returns a session with no events when an existing ticket has no transcript', async () => {
+  const startedAt = '2026-09-22T00:00:00Z'
+  const call = serve({
+    store: { tickets: { get: (id: string) => id === 't1' ? {
+      id, harness: 'codex', assignments: [{ startedAt, report: { state: 'progress' } }, { state: 'pending' }],
+    } : undefined } },
+    transcripts: { events: async () => undefined },
+  })
+  expect(await call('GET', 'tickets/t1/session')).toEqual({ status: 200, body: {
+    sessionId: 'worker-t1', harness: 'codex', state: 'progress', startedAt, events: [],
+  } })
+  expect(await call('GET', 'tickets/missing/session')).toEqual({ status: 404, body: { error: 'Ticket not found' } })
+})
+
+it('projects only the newest 200 transcript events with short, plain summaries', async () => {
+  const call = serve({
+    store: { tickets: { get: () => ({ id: 't1', assignments: [] }) } },
+    transcripts: { events: async (id: string) => id === 'worker-t1'
+      ? Array.from({ length: 201 }, (_, seq) => ({ type: 'assistant', seq, time: seq,
+        data: { message: { content: [{ type: 'text', text: `**${seq}** ${'x'.repeat(300)}` }] } } })) : [] },
+  })
+  const { status, body } = await call('GET', 'tickets/t1/session')
+  expect(status).toBe(200)
+  expect(body).toMatchObject({ sessionId: 'worker-t1', harness: null, state: null, startedAt: null })
+  expect(body.events).toHaveLength(200)
+  const events = body.events as { type: string; summary: string }[]
+  expect(events[0]).toEqual({ type: 'assistant', summary: `1 ${'x'.repeat(238)}` })
+  expect(events.at(-1)).toEqual({ type: 'assistant', summary: `200 ${'x'.repeat(236)}` })
+  expect(events.every(event => event.summary.length <= 240)).toBe(true)
+})
+
+it('continues to serve session metadata when reading the transcript fails', async () => {
+  const startedAt = '2026-09-22T00:00:00Z'
+  const call = serve({
+    store: { tickets: { get: () => ({ id: 't1', assignments: [{ startedAt, report: { state: 'ready' } }] }) } },
+    transcripts: { events: async () => { throw new Error('Transcript unavailable') } },
+  })
+  expect(await call('GET', 'tickets/t1/session')).toEqual({ status: 200, body: {
+    sessionId: 'worker-t1', harness: null, state: 'ready', startedAt, events: [],
+  } })
+})
+
+it('reads the standalone worker transcript from the running host without persistence', async () => {
+  const { runner, transcripts } = standalonePorts({ command: 'unused' }, { stateDir: '/unused', mode: 'off' })
+  const worker = await runner.create({ id: 'worker-t1', role: 'worker', cwd: '/unused' })
+  worker.inject(runner.message({ id: 'm1', text: 'Inspect the regression', form: 'relay' }))
+  const call = serve({ store: { tickets: { get: () => ({ id: 't1', assignments: [] }) } }, transcripts })
+  expect(await call('GET', 'tickets/t1/session')).toMatchObject({ status: 200, body: {
+    events: [{ type: 'user/message', summary: 'Inspect the regression' }],
+  } })
 })
 
 it('decodes path parameters and parses each route\'s query', async () => {
