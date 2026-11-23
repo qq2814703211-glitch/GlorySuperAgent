@@ -2,6 +2,7 @@
 import { liveTicket, threadKey, ticketStage, type AcceptMode, type AdmissionCell, type MandateBasis, type Ticket,
   type TicketStage } from '../../core/index.ts'
 import { workerSessionId } from '../../executor/dsh.ts'
+import type { RunnerEvent, TranscriptStore } from '../../runner/port.ts'
 import type { Store } from '../store.ts'
 import { channelLink, decisionView, newestFirst, page, snapshot, threadSummary, ticketLine, type Snapshot,
   type ViewHost } from './records.ts'
@@ -85,3 +86,38 @@ export function ticketDetail(host: ViewHost, id: string) {
       ...thread.context?.includes(id) ? { context: true as const } : {} })) }
 }
 export type TicketDetailView = NonNullable<ReturnType<typeof ticketDetail>>
+
+function sessionEvent({ type, data }: RunnerEvent) {
+  // DSH and CLI transcripts both carry message content, but not all events wrap it in `message`.
+  const payload = data as { message?: { content?: unknown }; content?: unknown; text?: unknown; result?: unknown; name?: unknown } | null
+  const content = payload?.message?.content ?? payload?.content
+  const hasText = (value: unknown): value is string => typeof value === 'string' && value.trim() !== ''
+  const message = Array.isArray(content)
+    ? content.map(block => block?.type === 'text' ? block.text : block?.name).filter(hasText).join(' ') : content
+  const summary = [message, payload?.text, payload?.result, payload?.name, data].find(hasText)
+  return { type, summary: preview(summary ?? '', 2000) }
+}
+
+const aboutTicket = (event: RunnerEvent, ticketId: string, workerId: string): boolean => {
+  let text = event.type
+  try { text = JSON.stringify(event) } catch { /* A non-serializable event is matched on its type only. */ }
+  return text.includes(ticketId) || text.includes(workerId)
+}
+
+async function recentEvents(transcripts: Pick<TranscriptStore, 'events'>, sessionId: string, keep?: (event: RunnerEvent) => boolean) {
+  try {
+    const loaded = (await transcripts.events(sessionId)) ?? []
+    return (keep ? loaded.filter(keep) : loaded).slice(-200).map(sessionEvent)
+  } catch { return [] /* An unavailable transcript does not make the ticket unavailable. */ }
+}
+
+export async function ticketSession(ticket: Ticket, transcripts: Pick<TranscriptStore, 'events'>, routerId?: string) {
+  const sessionId = workerSessionId(ticket.id)
+  const assignment = ticket.assignments.findLast(item => item.startedAt)
+  const events = await recentEvents(transcripts, sessionId)
+  const router = { sessionId: routerId ?? null, events: routerId
+    ? await recentEvents(transcripts, routerId, event => aboutTicket(event, ticket.id, sessionId)) : [] }
+  return { sessionId, harness: ticket.harness ?? null, state: assignment?.report?.state ?? null,
+    startedAt: assignment?.startedAt ?? null, events, router }
+}
+export type TicketSessionView = Awaited<ReturnType<typeof ticketSession>>

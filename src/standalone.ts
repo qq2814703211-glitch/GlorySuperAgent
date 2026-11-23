@@ -77,10 +77,11 @@ export const standaloneMachine = (stateDir: string): Machine => ({
  */
 export function standalonePorts(cli?: CliConfig, confinement?: { stateDir: string; mode?: SandboxMode; extras?: SandboxExtras },
   workerCli?: CliConfig, harnesses?: Readonly<Record<string, CliConfig>>, defaultHarness?: string): AgentPorts {
+  let runner: ClaudeRunner | undefined
   const transcripts: TranscriptStore = {
     flush: async () => { /* The CLI's own session files hold the transcript. */ },
     readUserMessages: async () => [],
-    events: async () => [],
+    events: async sessionId => runner?.get(sessionId)?.session.snapshotEvents() ?? [],
   }
   const logger = { info: (format: string, ...args: unknown[]) => { console.log(format, ...args) },
     warn: (format: string, ...args: unknown[]) => { console.warn(format, ...args) },
@@ -106,7 +107,7 @@ export function standalonePorts(cli?: CliConfig, confinement?: { stateDir: strin
         return wrapped
       }
     : undefined
-  const runner = new ClaudeRunner({ cli, ...workerCli ? { workerCli } : {}, ...harnesses ? { harnesses } : {},
+  runner = new ClaudeRunner({ cli, ...workerCli ? { workerCli } : {}, ...harnesses ? { harnesses } : {},
     ...defaultHarness ? { defaultHarness } : {}, subprocess: nodeSubprocess, logger, ...confine ? { confine } : {},
     // The CLI reaches the engine's tools through an MCP server the engine serves, one per agent. The server offers the
     // tools the engine bound on that agent, and a tool the engine released stops answering.

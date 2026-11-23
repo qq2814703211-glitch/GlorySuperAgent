@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // The Execution status, a Ticket, and the Execution settings.
 import { act } from 'react'
-import { expect, it } from 'vitest'
+import { expect, it, vi } from 'vitest'
 import { en, zh } from '../src/client/locales.ts'
 import { usePanel, mount, remount, all, find, tab, click, type, text, field, at } from './fixtures/panel.tsx'
 import { MEMBER, server, ticketSummary, threadSummary } from './fixtures/panel-server.ts'
@@ -54,8 +54,8 @@ it('shows a Ticket with its stage, its Mandate details with the Trigger and Deci
   await mount()
   await click(all('.dt-open').find(button => button.textContent === '修复回归')!)
   expect(document.querySelector('.dt-page-title h2')?.textContent).toBe('修复回归')
-  // Progress is in the Channels and the Session, so the page has no report section.
-  expect(all('.dt-section-title').map(title => title.querySelector('.dt-section-name')?.textContent)).toEqual(['授权详情', '未送达的输入', '订阅的线程'])
+  expect(all('.dt-section-title').map(title => title.querySelector('.dt-section-name')?.textContent)).toEqual(['授权详情', zh.ticketSession,
+    '未送达的输入', '订阅的线程'])
   expect(document.querySelector('.dt-status-line .dt-stage')?.textContent).toBe(zh.executingLabel)
   expect(document.querySelector('.dt-status-line .dt-stage .dt-spinner')).not.toBeNull()
   // A Thread this Ticket follows reads as subscribed on its page, though no other Ticket follows it.
@@ -73,6 +73,37 @@ it('shows a Ticket with its stage, its Mandate details with the Trigger and Deci
     'DSH_SUPERAGENT_GITHUB_NUMBER—'])
   await click(document.querySelector<HTMLElement>('.dt-trigger-link')!)
   expect(tab(zh['tab.trigger']).getAttribute('aria-selected')).toBe('true')
+})
+
+it('reads and copies the worker session inline, with localized states and events', async () => {
+  server.ticketSessions.t1 = { sessionId: 'worker-t1', harness: 'codex', state: 'progress', startedAt: '2026-09-22T00:00:00Z',
+    events: [{ type: 'assistant/message', summary: 'Inspected the regression.' }],
+    router: { sessionId: 'orchestrator-1', events: [{ type: 'assistant/message', summary: 'Router assigned the ticket.' }] } }
+  const writeText = vi.fn(async () => {})
+  const originalClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard')
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
+  try {
+    at({ page: 'execution', id: 't1' })
+    await mount()
+    expect(server.requests).toContainEqual({ method: 'GET', path: 'tickets/t1/session' })
+    const session = () => all('.dt-section').find(section => section.querySelector('.dt-mono')?.textContent === 'worker-t1')!
+    expect(session().textContent).toContain('codex')
+    expect(session().textContent).toContain('assistant/message')
+    expect(session().textContent).toContain('Inspected the regression.')
+    expect(session().textContent).toContain('orchestrator-1')
+    expect(session().textContent).toContain('Router assigned the ticket.')
+    expect(session().querySelector('[data-state="ongoing"]')?.textContent).toBe(zh['report.progress'])
+    await click(session().querySelector<HTMLElement>(`button[aria-label="${zh.copySessionId}"]`)!)
+    expect(writeText).toHaveBeenCalledWith('worker-t1')
+    expect(server.opened).toEqual([])
+    server.ticketSessions.t1 = { ...server.ticketSessions.t1, state: 'ready', events: [] }
+    await remount(en)
+    expect(session().querySelector('[data-state="done"]')?.textContent).toBe(en['report.ready'])
+    expect(session().textContent).toContain(en.sessionNoEvents)
+  } finally {
+    if (originalClipboard) Object.defineProperty(navigator, 'clipboard', originalClipboard)
+    else Reflect.deleteProperty(navigator, 'clipboard')
+  }
 })
 
 it('reports a missing Ticket instead of rendering an empty page', async () => {

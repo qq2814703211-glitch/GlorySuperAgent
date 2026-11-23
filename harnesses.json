@@ -12,7 +12,7 @@
         "/Users/dearglory/.gemini",
         "/Users/dearglory/.local/bin",
         "${tableDir}/adapters",
-        "/Users/dearglory/Global-repos/super-agent-2",
+        "/Users/dearglory/Global-repos/GlorySuperAgent",
         "/Users/dearglory/.config/gh-glory-gitbot"
       ],
       "state": [
@@ -29,7 +29,7 @@
         "/Users/dearglory/.gemini",
         "/Users/dearglory/.local/bin",
         "${tableDir}/adapters",
-        "/Users/dearglory/Global-repos/super-agent-2",
+        "/Users/dearglory/Global-repos/GlorySuperAgent",
         "/Users/dearglory/.config/gh-glory-gitbot"
       ],
       "state": [
@@ -56,7 +56,7 @@
         "/Users/dearglory/.codex",
         "/Users/dearglory/.hermes/tools/node-26.12.1-darwin-arm64",
         "${tableDir}/adapters",
-        "/Users/dearglory/Global-repos/super-agent-2",
+        "/Users/dearglory/Global-repos/GlorySuperAgent",
         "/Users/dearglory/.config/gh-glory-gitbot",
         "/Users/dearglory/.local/bin"
       ],
@@ -75,12 +75,29 @@
         "/Users/dearglory/.hermes/tools/node-26.12.1-darwin-arm64",
         "/Applications/DeepSeek Harness.app",
         "${tableDir}/adapters",
-        "/Users/dearglory/Global-repos/super-agent-2",
+        "/Users/dearglory/Global-repos/GlorySuperAgent",
         "/Users/dearglory/.config/gh-glory-gitbot",
         "/Users/dearglory/.local/bin"
       ],
       "state": [
         "/Users/dearglory/.dsh"
+      ]
+    },
+    "grok": {
+      "command": "/Users/dearglory/.hermes/tools/node-26.12.1-darwin-arm64/bin/node",
+      "args": [
+        "${tableDir}/adapters/grok.mjs"
+      ],
+      "readable": [
+        "/Users/dearglory/.grok",
+        "/Users/dearglory/.hermes/tools/node-26.12.1-darwin-arm64",
+        "${tableDir}/adapters",
+        "/Users/dearglory/Global-repos/GlorySuperAgent",
+        "/Users/dearglory/.config/gh-glory-gitbot",
+        "/Users/dearglory/.local/bin"
+      ],
+      "state": [
+        "/Users/dearglory/.grok"
       ]
     }
   },
