@@ -195,7 +195,7 @@ function routes(runtime: HttpHost): Routes {
       return ticketList(views(runtime), state, offset, limit)
     },
     'GET tickets/:id': ({ params }) => ticketPage(runtime, params.id),
-    'GET tickets/:id/session': ({ params }) => ticketSession(ticket(params.id), runtime.transcripts),
+    'GET tickets/:id/session': ({ params }) => ticketSession(ticket(params.id), runtime.transcripts, runtime.masterId),
     'POST tickets/:id/retry': ({ params }) => { const { id } = ticket(params.id); runtime.engine.retryTicket(id); return { retried: true } },
     'POST tickets/:id/stop': ({ params }) => { const { id } = ticket(params.id); runtime.engine.stopTicket(id); return { stopped: true } },
     'POST executor/pause': async ({ body }) => runtime.settings.pause(z.object({ paused: z.boolean() }).parse(await body()).paused, 'panel'),

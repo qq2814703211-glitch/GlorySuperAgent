@@ -77,7 +77,8 @@ it('shows a Ticket with its stage, its Mandate details with the Trigger and Deci
 
 it('reads and copies the worker session inline, with localized states and events', async () => {
   server.ticketSessions.t1 = { sessionId: 'worker-t1', harness: 'codex', state: 'progress', startedAt: '2026-09-22T00:00:00Z',
-    events: [{ type: 'assistant/message', summary: 'Inspected the regression.' }] }
+    events: [{ type: 'assistant/message', summary: 'Inspected the regression.' }],
+    router: { sessionId: 'orchestrator-1', events: [{ type: 'assistant/message', summary: 'Router assigned the ticket.' }] } }
   const writeText = vi.fn(async () => {})
   const originalClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard')
   Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
@@ -89,6 +90,8 @@ it('reads and copies the worker session inline, with localized states and events
     expect(session().textContent).toContain('codex')
     expect(session().textContent).toContain('assistant/message')
     expect(session().textContent).toContain('Inspected the regression.')
+    expect(session().textContent).toContain('orchestrator-1')
+    expect(session().textContent).toContain('Router assigned the ticket.')
     expect(session().querySelector('[data-state="ongoing"]')?.textContent).toBe(zh['report.progress'])
     await click(session().querySelector<HTMLElement>(`button[aria-label="${zh.copySessionId}"]`)!)
     expect(writeText).toHaveBeenCalledWith('worker-t1')

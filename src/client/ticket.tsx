@@ -43,6 +43,16 @@ function Details({ icon, title, open = false, children }: { icon: IconName; titl
     <div className="dt-disclosure-body">{children}</div>
   </DisclosureRow>
 }
+function EventList({ title, events, empty }: { title: string; events: { type: string; summary: string }[]; empty: string }) {
+  return <Details icon="queue" title={title} open>
+    {events.length > 0 ? <ul className="dt-list">{events.map(({ type, summary }, index) => <li className="dt-row" key={index}>
+      <div className="dt-row-main">
+        <div className="dt-row-title dt-mono">{type}</div>
+        {summary && <div className="dt-event-text">{summary}</div>}
+      </div>
+    </li>)}</ul> : <Hint>{empty}</Hint>}
+  </Details>
+}
 function TicketSession({ id }: { id: string }) {
   const { t, call, notify } = usePanel()
   const { data, error } = usePoll(() => call('GET tickets/:id/session', { id }), [id])
@@ -54,21 +64,20 @@ function TicketSession({ id }: { id: string }) {
     <LoadState loading={!data} error={error} />
     {data && <>
       <div className="dt-row-meta">
-        <LabelValue label={t('sessionId')} value={<code className="dt-mono">{data.sessionId}</code>} />
+        <LabelValue label={t('workerSession')} value={<code className="dt-mono">{data.sessionId}</code>} />
         <Button variant="ghost" size="sm" icon={<Icon name="copy" size={14} />} aria-label={t('copySessionId')}
           title={t('copySessionId')} onClick={() => { void copy(data.sessionId) }} />
         <LabelValue label={t('sessionHarness')} value={data.harness ?? (data.startedAt ? t('sessionDefaultHarness') : t('empty'))} />
         <LabelValue label={t('sessionState')} value={data.state ? <StageMark state={data.state === 'progress' ? 'ongoing' : 'done'}
           icon="decision" label={valueLabel(t, 'report', data.state)} /> : t('empty')} />
       </div>
-      {data.events.length > 0 ? <Details icon="queue" title={t('sessionEvents')} open>
-        <ul className="dt-list">{data.events.map(({ type, summary }, index) => <li className="dt-row" key={index}>
-          <div className="dt-row-main">
-            <div className="dt-row-title dt-mono">{type}</div>
-            {summary && <div className="dt-event-text">{summary}</div>}
-          </div>
-        </li>)}</ul>
-      </Details> : <Hint>{t('sessionNoEvents')}</Hint>}
+      {data.router?.sessionId && <div className="dt-row-meta">
+        <LabelValue label={t('routerSession')} value={<code className="dt-mono">{data.router.sessionId}</code>} />
+        <Button variant="ghost" size="sm" icon={<Icon name="copy" size={14} />} aria-label={t('copySessionId')}
+          title={t('copySessionId')} onClick={() => { void copy(data.router.sessionId!) }} />
+      </div>}
+      <EventList title={t('routerSession')} events={data.router?.events ?? []} empty={t('sessionNoEvents')} />
+      <EventList title={t('workerSession')} events={data.events} empty={t('sessionNoEvents')} />
     </>}
   </Section>
 }

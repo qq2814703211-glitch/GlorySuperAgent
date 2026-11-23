@@ -330,7 +330,8 @@ const ROUTES: { [K in keyof Api]: Route<K> } = {
   'GET tickets/:id': { answer: ({ params }) => server.ticketDetails[params.id] ?? refuse(404, 'Ticket not found') },
   'GET tickets/:id/session': { answer: ({ params: { id } }) => {
     if (!server.ticketDetails[id]) return refuse(404, 'Ticket not found')
-    return server.ticketSessions[id] ?? { sessionId: `worker-${id}`, harness: null, state: null, startedAt: null, events: [] }
+    return server.ticketSessions[id] ?? { sessionId: `worker-${id}`, harness: null, state: null, startedAt: null, events: [],
+      router: { sessionId: null, events: [] } }
   } },
   'POST tickets/:id/retry': { answer: ({ params }) => {
     const ticket = ticketOf(params.id)

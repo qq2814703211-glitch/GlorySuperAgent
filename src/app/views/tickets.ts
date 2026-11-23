@@ -95,16 +95,29 @@ function sessionEvent({ type, data }: RunnerEvent) {
   const message = Array.isArray(content)
     ? content.map(block => block?.type === 'text' ? block.text : block?.name).filter(hasText).join(' ') : content
   const summary = [message, payload?.text, payload?.result, payload?.name, data].find(hasText)
-  return { type, summary: preview(summary ?? '', 240) }
+  return { type, summary: preview(summary ?? '', 2000) }
 }
 
-export async function ticketSession(ticket: Ticket, transcripts: Pick<TranscriptStore, 'events'>) {
+const aboutTicket = (event: RunnerEvent, ticketId: string, workerId: string): boolean => {
+  let text = event.type
+  try { text = JSON.stringify(event) } catch { /* A non-serializable event is matched on its type only. */ }
+  return text.includes(ticketId) || text.includes(workerId)
+}
+
+async function recentEvents(transcripts: Pick<TranscriptStore, 'events'>, sessionId: string, keep?: (event: RunnerEvent) => boolean) {
+  try {
+    const loaded = (await transcripts.events(sessionId)) ?? []
+    return (keep ? loaded.filter(keep) : loaded).slice(-200).map(sessionEvent)
+  } catch { return [] /* An unavailable transcript does not make the ticket unavailable. */ }
+}
+
+export async function ticketSession(ticket: Ticket, transcripts: Pick<TranscriptStore, 'events'>, routerId?: string) {
   const sessionId = workerSessionId(ticket.id)
   const assignment = ticket.assignments.findLast(item => item.startedAt)
-  let events: ReturnType<typeof sessionEvent>[] = []
-  try { events = (await transcripts.events(sessionId))?.slice(-200).map(sessionEvent) ?? [] }
-  catch { /* An unavailable transcript does not make the ticket unavailable. */ }
+  const events = await recentEvents(transcripts, sessionId)
+  const router = { sessionId: routerId ?? null, events: routerId
+    ? await recentEvents(transcripts, routerId, event => aboutTicket(event, ticket.id, sessionId)) : [] }
   return { sessionId, harness: ticket.harness ?? null, state: assignment?.report?.state ?? null,
-    startedAt: assignment?.startedAt ?? null, events }
+    startedAt: assignment?.startedAt ?? null, events, router }
 }
 export type TicketSessionView = Awaited<ReturnType<typeof ticketSession>>
