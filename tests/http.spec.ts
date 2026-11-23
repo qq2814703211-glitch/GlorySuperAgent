@@ -63,11 +63,12 @@ it('returns a session with no events when an existing ticket has no transcript',
   })
   expect(await call('GET', 'tickets/t1/session')).toEqual({ status: 200, body: {
     sessionId: 'worker-t1', harness: 'codex', state: 'progress', startedAt, events: [],
+    router: { sessionId: null, events: [] },
   } })
   expect(await call('GET', 'tickets/missing/session')).toEqual({ status: 404, body: { error: 'Ticket not found' } })
 })
 
-it('projects only the newest 200 transcript events with short, plain summaries', async () => {
+it('projects only the newest 200 transcript events with bounded plain summaries', async () => {
   const call = serve({
     store: { tickets: { get: () => ({ id: 't1', assignments: [] }) } },
     transcripts: { events: async (id: string) => id === 'worker-t1'
@@ -79,9 +80,9 @@ it('projects only the newest 200 transcript events with short, plain summaries',
   expect(body).toMatchObject({ sessionId: 'worker-t1', harness: null, state: null, startedAt: null })
   expect(body.events).toHaveLength(200)
   const events = body.events as { type: string; summary: string }[]
-  expect(events[0]).toEqual({ type: 'assistant', summary: `1 ${'x'.repeat(238)}` })
-  expect(events.at(-1)).toEqual({ type: 'assistant', summary: `200 ${'x'.repeat(236)}` })
-  expect(events.every(event => event.summary.length <= 240)).toBe(true)
+  expect(events[0]).toEqual({ type: 'assistant', summary: `1 ${'x'.repeat(300)}` })
+  expect(events.at(-1)).toEqual({ type: 'assistant', summary: `200 ${'x'.repeat(300)}` })
+  expect(events.every(event => event.summary.length <= 2000)).toBe(true)
 })
 
 it('continues to serve session metadata when reading the transcript fails', async () => {
@@ -92,7 +93,22 @@ it('continues to serve session metadata when reading the transcript fails', asyn
   })
   expect(await call('GET', 'tickets/t1/session')).toEqual({ status: 200, body: {
     sessionId: 'worker-t1', harness: null, state: 'ready', startedAt, events: [],
+    router: { sessionId: null, events: [] },
   } })
+})
+
+it('returns only the router events that mention this ticket', async () => {
+  const call = serve({
+    masterId: 'orchestrator-1',
+    store: { tickets: { get: () => ({ id: 't1', assignments: [] }) } },
+    transcripts: { events: async (id: string) => id === 'orchestrator-1' ? [
+      { type: 'assistant', data: { text: 'working on t1' } },
+      { type: 'assistant', data: { text: 'other ticket t9' } },
+    ] : [] },
+  })
+  const { status, body } = await call('GET', 'tickets/t1/session')
+  expect(status).toBe(200)
+  expect(body.router).toEqual({ sessionId: 'orchestrator-1', events: [{ type: 'assistant', summary: 'working on t1' }] })
 })
 
 it('reads the standalone worker transcript from the running host without persistence', async () => {
